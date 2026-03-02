@@ -16,13 +16,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         jitsiMeet.conferenceActivityType = "org.jitsi.JitsiMeet.ios.conference" // Must match the one defined in Info.plist{}
         jitsiMeet.customUrlScheme = "org.jitsi.meet"
-        jitsiMeet.universalLinkDomains = ["meet.jit.si", "alpha.jitsi.net", "beta.meet.jit.si"]
+        jitsiMeet.universalLinkDomains = ["hhg.qrgaxeo.cn"]
 
         jitsiMeet.defaultConferenceOptions = JitsiMeetConferenceOptions.fromBuilder { builder in
-            // For testing configOverrides a room needs to be set
-            // builder.room = "https://meet.jit.si/test0988test"
+            builder.serverURL = URL(string: "https://hhg.qrgaxeo.cn")
 
             builder.setFeatureFlag("welcomepage.enabled", withBoolean: true)
+            builder.setFeatureFlag("server-url-change.enabled", withBoolean: false)
             builder.setFeatureFlag("ios.screensharing.enabled", withBoolean: true)
             builder.setFeatureFlag("ios.recording.enabled", withBoolean: true)
         }
