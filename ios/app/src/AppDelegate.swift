@@ -16,10 +16,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         jitsiMeet.conferenceActivityType = "org.jitsi.JitsiMeet.ios.conference" // Must match the one defined in Info.plist{}
         jitsiMeet.customUrlScheme = "org.jitsi.meet"
-        jitsiMeet.universalLinkDomains = ["hhg.qrgaxeo.cn"]
+        jitsiMeet.universalLinkDomains = ["d.xianxinhn.xyz"]
 
         jitsiMeet.defaultConferenceOptions = JitsiMeetConferenceOptions.fromBuilder { builder in
-            builder.serverURL = URL(string: "https://hhg.qrgaxeo.cn")
+            builder.serverURL = URL(string: "https://d.xianxinhn.xyz")
 
             builder.setFeatureFlag("welcomepage.enabled", withBoolean: true)
             builder.setFeatureFlag("server-url-change.enabled", withBoolean: false)

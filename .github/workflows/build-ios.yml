@@ -37,7 +37,7 @@ jobs:
       run: |
         xcodebuild build \
           -workspace ios/jitsi-meet.xcworkspace \
-          -scheme app \
+          -scheme JitsiMeet \
           -configuration Debug \
           -sdk iphonesimulator \
           -destination 'generic/platform=iOS Simulator' \
