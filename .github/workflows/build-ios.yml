@@ -7,6 +7,9 @@ jobs:
   build-ios:
     name: Build iOS
     runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
     steps:
     - uses: actions/checkout@v4
 
@@ -33,6 +36,16 @@ jobs:
       working-directory: ./ios
       run: bundle exec pod install --repo-update --deployment
 
+    - name: Pre-bundle React Native JS
+      run: |
+        npx react-native bundle \
+          --entry-file react/index.native.js \
+          --platform ios \
+          --dev false \
+          --bundle-output /tmp/ios.jsbundle \
+          --assets-dest /tmp/ios-assets \
+          --reset-cache
+
     - name: Build iOS app (no signing)
       run: |
         xcodebuild build \
@@ -42,9 +55,21 @@ jobs:
           -sdk iphonesimulator \
           -destination 'generic/platform=iOS Simulator' \
           -derivedDataPath ios/build \
+          -jobs 2 \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_ALLOWED=NO \
+          COMPILER_INDEX_STORE_ENABLE=NO \
+          DEBUG_INFORMATION_FORMAT=dwarf \
+        | tee build.log | tail -n 100
+
+    - name: Show build errors if failed
+      if: failure()
+      run: |
+        echo "=== Last 200 lines of build log ==="
+        tail -n 200 build.log
+        echo "=== All errors ==="
+        grep -i "error:" build.log || true
 
     - name: Archive built app
       run: |
