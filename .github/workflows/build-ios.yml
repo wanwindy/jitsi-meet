@@ -48,6 +48,7 @@ jobs:
 
     - name: Build iOS app (no signing)
       run: |
+        set -o pipefail
         xcodebuild build \
           -workspace ios/jitsi-meet.xcworkspace \
           -scheme JitsiMeet \
@@ -61,19 +62,25 @@ jobs:
           CODE_SIGNING_ALLOWED=NO \
           COMPILER_INDEX_STORE_ENABLE=NO \
           DEBUG_INFORMATION_FORMAT=dwarf \
-        | tee build.log | tail -n 100
+          2>&1 | tee build.log
 
     - name: Show build errors if failed
       if: failure()
       run: |
-        echo "=== Last 200 lines of build log ==="
-        tail -n 200 build.log
+        echo "=== Last 300 lines of build log ==="
+        tail -n 300 build.log || true
         echo "=== All errors ==="
-        grep -i "error:" build.log || true
+        grep -iE "error:|fatal error:|BUILD FAILED" build.log || true
+        echo "=== Build directory contents ==="
+        find ios/build -name "*.app" -type d 2>/dev/null || echo "No .app found"
+        ls -la ios/build/Build/Products/ 2>/dev/null || echo "Products dir not found"
 
     - name: Archive built app
       run: |
-        cd ios/build/Build/Products/Debug-iphonesimulator
+        APP_DIR="ios/build/Build/Products/Debug-iphonesimulator"
+        echo "Looking for .app in: $APP_DIR"
+        ls -la "$APP_DIR" || true
+        cd "$APP_DIR"
         zip -r $GITHUB_WORKSPACE/jitsi-meet-ios-simulator.zip *.app
 
     - name: Upload iOS artifact
