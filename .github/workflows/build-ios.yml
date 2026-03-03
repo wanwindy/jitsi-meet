@@ -18,13 +18,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
-          cache: "yarn"
+          cache: "npm"
 
-      - name: Install JS deps (Yarn)
-        run: |
-          corepack enable
-          yarn --version
-          yarn install --frozen-lockfile
+      - name: Install JS deps
+        run: npm install
 
       - name: Select Xcode (default on runner)
         run: |
