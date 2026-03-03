@@ -16,16 +16,16 @@
                         <rect key="frame" x="0.0" y="0.0" width="480" height="480"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView opaque="NO" userInteractionEnabled="NO" contentMode="center" image="LaunchScreen" translatesAutoresizingMaskIntoConstraints="NO" id="4B8-Xf-NDE">
-                                <rect key="frame" x="0.0" y="0.0" width="480" height="480"/>
+                            <imageView opaque="NO" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchScreen" translatesAutoresizingMaskIntoConstraints="NO" id="4B8-Xf-NDE">
+                                <rect key="frame" x="156" y="156" width="168" height="168"/>
                             </imageView>
                         </subviews>
-                        <color key="backgroundColor" red="0.090196078431372548" green="0.62745098039215685" blue="0.85882352941176465" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" red="0.95686274509803926" green="0.98039215686274506" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstAttribute="bottom" secondItem="4B8-Xf-NDE" secondAttribute="bottom" id="aFF-BR-glX"/>
-                            <constraint firstItem="4B8-Xf-NDE" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="glR-YN-1GF"/>
-                            <constraint firstAttribute="trailing" secondItem="4B8-Xf-NDE" secondAttribute="trailing" id="tva-gl-jRX"/>
-                            <constraint firstItem="4B8-Xf-NDE" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="yaV-1V-oEh"/>
+                            <constraint firstItem="4B8-Xf-NDE" firstAttribute="centerX" secondItem="iN0-l3-epB" secondAttribute="centerX" id="2fz-Xq-LsT"/>
+                            <constraint firstItem="4B8-Xf-NDE" firstAttribute="centerY" secondItem="iN0-l3-epB" secondAttribute="centerY" id="GiB-bx-ADY"/>
+                            <constraint firstItem="4B8-Xf-NDE" firstAttribute="height" constant="168" id="Sn3-H1-7r2"/>
+                            <constraint firstItem="4B8-Xf-NDE" firstAttribute="width" constant="168" id="W1D-8h-j8H"/>
                         </constraints>
                         <nil key="simulatedStatusBarMetrics"/>
                         <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>

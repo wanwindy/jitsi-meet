@@ -3,7 +3,11 @@ import { Text, View, ViewStyle } from 'react-native';
 import { connect } from 'react-redux';
 
 import { IReduxState } from '../../../app/types';
-import { getConferenceName, getConferenceTimestamp } from '../../../base/conference/functions';
+import {
+    getConferenceName,
+    getConferenceTimestamp,
+    getRoomName
+} from '../../../base/conference/functions';
 import {
     AUDIO_DEVICE_BUTTON_ENABLED,
     CONFERENCE_TIMER_ENABLED,
@@ -49,7 +53,7 @@ interface IProps {
     /**
      * Name of the meeting we're currently in.
      */
-    _meetingName: string;
+    _meetingName?: string;
 
     /**
      * Whether displaying the current room name is enabled or not.
@@ -76,6 +80,9 @@ interface IProps {
  */
 const TitleBar = (props: IProps) => {
     const { _isParticipantsPaneEnabled, _visible } = props;
+    const meetingNameLabel = props._meetingName
+        ? `\u4f1a\u8bae\u53f7\uff1a${props._meetingName}`
+        : '\u4f1a\u8bae\u53f7';
 
     if (!_visible) {
         return null;
@@ -102,7 +109,7 @@ const TitleBar = (props: IProps) => {
                         <Text
                             numberOfLines = { 1 }
                             style = { styles.roomName }>
-                            { props._meetingName }
+                            { meetingNameLabel }
                         </Text>
                     </View>
                 }
@@ -147,7 +154,7 @@ function _mapStateToProps(state: IReduxState) {
         _conferenceTimerEnabled:
             Boolean(getFeatureFlag(state, CONFERENCE_TIMER_ENABLED, true) && !hideConferenceTimer && startTimestamp),
         _isParticipantsPaneEnabled: isParticipantsPaneEnabled(state),
-        _meetingName: getConferenceName(state),
+        _meetingName: getRoomName(state) || getConferenceName(state),
         _roomNameEnabled: isRoomNameEnabled(state),
         _toggleCameraButtonEnabled: getFeatureFlag(state, TOGGLE_CAMERA_BUTTON_ENABLED, true),
         _visible: isToolboxVisible(state)

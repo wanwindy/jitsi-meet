@@ -220,5 +220,155 @@ export default {
         flex: 1,
         opacity: 0.8,
         overflow: 'hidden'
+    },
+
+    simpleWelcomePage: {
+        backgroundColor: '#F1F5FA',
+        flex: 1
+    },
+
+    heroBackground: {
+        alignItems: 'center',
+        backgroundColor: '#EAF7FF',
+        borderBottomLeftRadius: 26,
+        borderBottomRightRadius: 26,
+        paddingBottom: BaseTheme.spacing[3],
+        paddingTop: BaseTheme.spacing[2]
+    },
+
+    heroContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%'
+    },
+
+    heroImage: {
+        height: 164,
+        width: 164
+    },
+
+    brandCard: {
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        flexDirection: 'row',
+        marginHorizontal: BaseTheme.spacing[3],
+        marginTop: BaseTheme.spacing[3],
+        paddingHorizontal: BaseTheme.spacing[2],
+        paddingVertical: BaseTheme.spacing[2]
+    },
+
+    brandIcon: {
+        borderRadius: 4,
+        height: 22,
+        marginRight: BaseTheme.spacing[1],
+        width: 22
+    },
+
+    brandName: {
+        color: '#194163',
+        ...BaseTheme.typography.heading6
+    },
+
+    actionButtonsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginHorizontal: BaseTheme.spacing[2],
+        marginTop: BaseTheme.spacing[3]
+    },
+
+    actionButton: {
+        borderRadius: 12,
+        flex: 1,
+        marginHorizontal: BaseTheme.spacing[1],
+        minHeight: 92,
+        paddingHorizontal: BaseTheme.spacing[2],
+        paddingVertical: BaseTheme.spacing[3]
+    },
+
+    actionButtonText: {
+        color: '#FFFFFF',
+        ...BaseTheme.typography.heading6
+    },
+
+    createMeetingCard: {
+        backgroundColor: '#23A9F4'
+    },
+
+    joinMeetingCard: {
+        backgroundColor: '#2FD8A3'
+    },
+
+    joinModalOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.32)',
+        justifyContent: 'center',
+        paddingHorizontal: BaseTheme.spacing[3]
+    },
+
+    joinMeetingPanel: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        width: '100%',
+        padding: BaseTheme.spacing[3]
+    },
+
+    joinMeetingTitle: {
+        color: '#194163',
+        ...BaseTheme.typography.bodyShortBold,
+        marginBottom: BaseTheme.spacing[2]
+    },
+
+    joinMeetingInput: {
+        fontSize: 20,
+        letterSpacing: 2,
+        textAlign: 'left'
+    },
+
+    joinPanelActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginTop: BaseTheme.spacing[2]
+    },
+
+    joinPanelCancelButton: {
+        alignItems: 'center',
+        borderColor: '#C5D6E6',
+        borderRadius: 8,
+        borderWidth: 1,
+        justifyContent: 'center',
+        marginRight: BaseTheme.spacing[2],
+        minHeight: 40,
+        minWidth: 88,
+        paddingHorizontal: BaseTheme.spacing[2]
+    },
+
+    joinPanelCancelText: {
+        color: '#38546F',
+        ...BaseTheme.typography.bodyShortBold
+    },
+
+    joinPanelConfirmButton: {
+        alignItems: 'center',
+        backgroundColor: '#23A9F4',
+        borderRadius: 8,
+        justifyContent: 'center',
+        minHeight: 40,
+        minWidth: 88,
+        paddingHorizontal: BaseTheme.spacing[2]
+    },
+
+    joinPanelConfirmButtonDisabled: {
+        backgroundColor: '#8FC6EA'
+    },
+
+    joinPanelConfirmText: {
+        color: '#FFFFFF',
+        ...BaseTheme.typography.bodyShortBold
+    },
+
+    joinMeetingButton: {
+        marginTop: BaseTheme.spacing[2]
     }
 };

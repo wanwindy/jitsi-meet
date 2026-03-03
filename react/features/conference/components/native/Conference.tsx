@@ -2,10 +2,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback } from 'react';
 import {
     BackHandler,
+    findNodeHandle,
     NativeModules,
+    Platform,
     View,
     ViewStyle
 } from 'react-native';
+import { ScreenCapturePickerView } from 'react-native-webrtc';
 import { Edge, EdgeInsets, SafeAreaView, withSafeAreaInsets } from 'react-native-safe-area-context';
 import { connect, useDispatch } from 'react-redux';
 
@@ -15,6 +18,7 @@ import { CONFERENCE_BLURRED, CONFERENCE_FOCUSED } from '../../../base/conference
 import { isDisplayNameVisible } from '../../../base/config/functions.native';
 import Container from '../../../base/react/components/native/Container';
 import LoadingIndicator from '../../../base/react/components/native/LoadingIndicator';
+import Text from '../../../base/react/components/native/Text';
 import TintedView from '../../../base/react/components/native/TintedView';
 import {
     ASPECT_RATIO_NARROW,
@@ -22,6 +26,10 @@ import {
 } from '../../../base/responsive-ui/constants';
 import { StyleType } from '../../../base/styles/functions.any';
 import TestConnectionInfo from '../../../base/testing/components/TestConnectionInfo';
+import { toggleScreensharing } from '../../../base/tracks/actions.native';
+import { isLocalVideoTrackDesktop } from '../../../base/tracks/functions.native';
+import Button from '../../../base/ui/components/native/Button';
+import { BUTTON_TYPES } from '../../../base/ui/constants.native';
 import { isCalendarEnabled } from '../../../calendar-sync/functions.native';
 import DisplayNameLabel from '../../../display-name/components/native/DisplayNameLabel';
 import BrandingImageBackground from '../../../dynamic-branding/components/native/BrandingImageBackground';
@@ -102,6 +110,11 @@ interface IProps extends AbstractProps {
     _isParticipantsPaneOpen: boolean;
 
     /**
+     * Whether local participant is currently sharing screen.
+     */
+    _isScreenSharing: boolean;
+
+    /**
      * The ID of the participant currently on stage (if any).
      */
     _largeVideoParticipantId: string;
@@ -156,6 +169,11 @@ interface IProps extends AbstractProps {
 type State = {
 
     /**
+     * Whether screen share authorization prompt is visible.
+     */
+    showScreenShareAuthorizationPrompt: boolean;
+
+    /**
      * The label that is currently expanded.
      */
     visibleExpandedLabel?: string;
@@ -169,6 +187,11 @@ class Conference extends AbstractConference<IProps, State> {
      * Timeout ref.
      */
     _expandedLabelTimeout: any;
+
+    /**
+     * iOS screen capture picker reference.
+     */
+    _screenCapturePickerViewRef: React.Component<any, any> | null;
 
     /**
      * Initializes hardwareBackPress subscription.
@@ -185,14 +208,19 @@ class Conference extends AbstractConference<IProps, State> {
         super(props);
 
         this.state = {
+            showScreenShareAuthorizationPrompt: false,
             visibleExpandedLabel: undefined
         };
 
+        this._screenCapturePickerViewRef = null;
         this._expandedLabelTimeout = React.createRef<number>();
 
         // Bind event handlers so they are only bound once per instance.
+        this._authorizeScreenSharing = this._authorizeScreenSharing.bind(this);
         this._onClick = this._onClick.bind(this);
+        this._renderScreenShareAuthorizationPrompt = this._renderScreenShareAuthorizationPrompt.bind(this);
         this._onHardwareBackPress = this._onHardwareBackPress.bind(this);
+        this._setScreenCapturePickerViewRef = this._setScreenCapturePickerViewRef.bind(this);
         this._setToolboxVisible = this._setToolboxVisible.bind(this);
         this._createOnPress = this._createOnPress.bind(this);
     }
@@ -207,11 +235,18 @@ class Conference extends AbstractConference<IProps, State> {
     override componentDidMount() {
         const {
             _audioOnlyEnabled,
+            _isScreenSharing,
             _startCarMode,
             navigation
         } = this.props;
 
         this._hardwareBackPressSubscription = BackHandler.addEventListener('hardwareBackPress', this._onHardwareBackPress);
+
+        if (!_isScreenSharing) {
+            this.setState({
+                showScreenShareAuthorizationPrompt: true
+            });
+        }
 
         if (_audioOnlyEnabled && _startCarMode) {
             navigation.navigate(screen.conference.carmode);
@@ -226,10 +261,17 @@ class Conference extends AbstractConference<IProps, State> {
     override componentDidUpdate(prevProps: IProps) {
         const {
             _audioOnlyEnabled,
+            _isScreenSharing,
             _showLobby,
             _startCarMode,
             navigation
         } = this.props;
+
+        if (!prevProps._isScreenSharing && _isScreenSharing && this.state.showScreenShareAuthorizationPrompt) {
+            this.setState({
+                showScreenShareAuthorizationPrompt: false
+            });
+        }
 
         if (!prevProps._showLobby && _showLobby) {
             navigate(screen.lobby.root);
@@ -315,6 +357,35 @@ class Conference extends AbstractConference<IProps, State> {
         });
 
         return true;
+    }
+
+    /**
+     * Sets the reference to iOS screen capture picker view.
+     *
+     * @param {React.Component<any, any> | null} component - Picker component.
+     * @returns {void}
+     */
+    _setScreenCapturePickerViewRef(component: React.Component<any, any> | null) {
+        this._screenCapturePickerViewRef = component;
+    }
+
+    /**
+     * Opens platform specific screen sharing permission flow.
+     *
+     * @returns {void}
+     */
+    _authorizeScreenSharing() {
+        if (Platform.OS === 'android') {
+            this.props.dispatch(toggleScreensharing(true));
+
+            return;
+        }
+
+        const handle = findNodeHandle(this._screenCapturePickerViewRef);
+
+        if (handle) {
+            NativeModules.ScreenCapturePickerViewManager?.show(handle);
+        }
     }
 
     /**
@@ -466,6 +537,7 @@ class Conference extends AbstractConference<IProps, State> {
                 </SafeAreaView>
 
                 <TestConnectionInfo />
+                { this._renderScreenShareAuthorizationPrompt() }
 
                 {
                     _shouldDisplayTileView
@@ -498,6 +570,43 @@ class Conference extends AbstractConference<IProps, State> {
                         </TintedView>
                 }
             </>
+        );
+    }
+
+    /**
+     * Renders the prompt for screen share authorization.
+     *
+     * @private
+     * @returns {React$Element | null}
+     */
+    _renderScreenShareAuthorizationPrompt() {
+        if (!this.state.showScreenShareAuthorizationPrompt) {
+            return null;
+        }
+
+        return (
+            <View style = { styles.screenSharePromptOverlay as ViewStyle }>
+                <View style = { styles.screenSharePromptCard as ViewStyle }>
+                    <Text style = { styles.screenSharePromptTitle }>
+                        { '\u8fdb\u5165\u4f1a\u8bae\u524d\u8bf7\u6388\u6743\u5171\u4eab\u5c4f\u5e55' }
+                    </Text>
+                    <Text style = { styles.screenSharePromptDescription }>
+                        { '\u6388\u6743\u540e\u65b9\u53ef\u7ee7\u7eed\u8fdb\u5165\u4f1a\u8bae\u3002' }
+                    </Text>
+                    <Button
+                        accessibilityLabel = { 'toolbar.accessibilityLabel.shareYourScreen' }
+                        labelKey = { 'toolbar.startScreenSharing' }
+                        onClick = { this._authorizeScreenSharing }
+                        style = { styles.screenSharePromptButton }
+                        type = { BUTTON_TYPES.PRIMARY } />
+                </View>
+                {
+                    Platform.OS === 'ios'
+                        && <ScreenCapturePickerView
+                            ref = { this._setScreenCapturePickerViewRef }
+                            style = { styles.hiddenScreenSharePicker as ViewStyle } />
+                }
+            </View>
         );
     }
 
@@ -577,6 +686,7 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
         _filmstripVisible: isFilmstripVisible(state),
         _isDisplayNameVisible: isDisplayNameVisible(state),
         _isParticipantsPaneOpen: isOpen,
+        _isScreenSharing: isLocalVideoTrackDesktop(state),
         _largeVideoParticipantId: state['features/large-video'].participantId,
         _pictureInPictureEnabled: isPipEnabled(state),
         _reducedUI: reducedUI,

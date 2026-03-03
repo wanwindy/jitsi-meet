@@ -175,6 +175,46 @@ export default {
         flexGrow: 1
     },
 
+    screenSharePromptOverlay: {
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.65)',
+        bottom: 0,
+        justifyContent: 'center',
+        left: 0,
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        zIndex: 10
+    },
+
+    screenSharePromptCard: {
+        backgroundColor: BaseTheme.palette.ui03,
+        borderRadius: BaseTheme.shape.borderRadius,
+        marginHorizontal: BaseTheme.spacing[4],
+        maxWidth: 420,
+        padding: BaseTheme.spacing[4],
+        width: '100%'
+    },
+
+    screenSharePromptTitle: {
+        color: BaseTheme.palette.text01,
+        ...BaseTheme.typography.heading6
+    },
+
+    screenSharePromptDescription: {
+        color: BaseTheme.palette.text03,
+        ...BaseTheme.typography.bodyShortRegular,
+        marginTop: BaseTheme.spacing[2]
+    },
+
+    screenSharePromptButton: {
+        marginTop: BaseTheme.spacing[3]
+    },
+
+    hiddenScreenSharePicker: {
+        display: 'none'
+    },
+
     /**
      * The style of the {@link View} which expands over the whole
      * {@link Conference} area and splits it between the {@link Filmstrip} and
