@@ -1,103 +1,89 @@
-name: Build iOS App
+name: Build iOS (Simulator)
 
 on:
   workflow_dispatch:
 
 jobs:
   build-ios:
-    name: Build iOS
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
-      NODE_OPTIONS: "--max-old-space-size=4096"
+      NODE_OPTIONS: "--max-old-space-size=6144"
+
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version-file: '.nvmrc'
-        cache: 'npm'
+      - name: Setup Node (from .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "yarn"
 
-    - name: Install npm dependencies
-      run: npm install
+      - name: Install JS deps (Yarn)
+        run: |
+          corepack enable
+          yarn --version
+          yarn install --frozen-lockfile
 
-    - name: Setup Xcode
-      run: |
-        # Remove default Xcode symlink to avoid duplicate SwiftBridging module
-        if [ -L /Applications/Xcode.app ] || [ -d /Applications/Xcode.app ]; then
-          sudo mv /Applications/Xcode.app /Applications/Xcode_default.app.bak
-          echo "Moved default Xcode.app to avoid toolchain conflict"
-        fi
-        sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-        xcodebuild -version
-      env:
-        DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
+      - name: Select Xcode (default on runner)
+        run: |
+          xcodebuild -version
+          xcode-select -p
 
-    - name: Setup Ruby and CocoaPods
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.4'
-        bundler-cache: true
+      # CocoaPods: for "compile success first", use the simplest approach
+      - name: Install CocoaPods
+        run: |
+          sudo gem install cocoapods -N
+          pod --version
 
-    - name: Install Pods
-      working-directory: ./ios
-      run: bundle exec pod install --repo-update --deployment
+      - name: Install Pods
+        working-directory: ios
+        run: |
+          set -o pipefail
+          pod repo update 2>&1 | tee $GITHUB_WORKSPACE/pod_repo_update.log
+          pod install 2>&1 | tee $GITHUB_WORKSPACE/pod_install.log
 
-    - name: Pre-bundle React Native JS
-      run: |
-        npx react-native bundle \
-          --entry-file react/index.native.js \
-          --platform ios \
-          --dev false \
-          --bundle-output /tmp/ios.jsbundle \
-          --assets-dest /tmp/ios-assets \
-          --reset-cache
+      # Build simulator (no signing)
+      - name: Build iOS Simulator (no signing)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -workspace ios/jitsi-meet.xcworkspace \
+            -scheme JitsiMeet \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee $GITHUB_WORKSPACE/build.log
 
-    - name: Download iOS Simulator platform
-      run: xcodebuild -downloadPlatform iOS
+      - name: Dump logs (always)
+        if: always()
+        run: |
+          echo "=== pod_install.log tail ==="
+          tail -n 200 pod_install.log 2>/dev/null || true
+          echo "=== build.log tail ==="
+          tail -n 300 build.log 2>/dev/null || true
+          echo "=== DerivedData Products ==="
+          ls -la ios/build/Build/Products 2>/dev/null || true
 
-    - name: Build iOS app (no signing)
-      env:
-        DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
-      run: |
-        set -o pipefail
-        xcodebuild build \
-          -workspace ios/jitsi-meet.xcworkspace \
-          -scheme JitsiMeet \
-          -configuration Debug \
-          -sdk iphonesimulator \
-          -destination 'generic/platform=iOS Simulator' \
-          -derivedDataPath ios/build \
-          -jobs 2 \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO \
-          COMPILER_INDEX_STORE_ENABLE=NO \
-          DEBUG_INFORMATION_FORMAT=dwarf \
-          2>&1 | tee build.log
+      - name: Archive Simulator .app
+        if: success()
+        run: |
+          APP_DIR="ios/build/Build/Products/Debug-iphonesimulator"
+          echo "Looking for .app in: $APP_DIR"
+          ls -la "$APP_DIR"
+          cd "$APP_DIR"
+          ls -la *.app
+          zip -r "$GITHUB_WORKSPACE/jitsi-meet-ios-simulator.zip" *.app
 
-    - name: Show build errors if failed
-      if: failure()
-      run: |
-        echo "=== Last 300 lines of build log ==="
-        tail -n 300 build.log || true
-        echo "=== All errors ==="
-        grep -iE "error:|fatal error:|BUILD FAILED" build.log || true
-        echo "=== Build directory contents ==="
-        find ios/build -name "*.app" -type d 2>/dev/null || echo "No .app found"
-        ls -la ios/build/Build/Products/ 2>/dev/null || echo "Products dir not found"
-
-    - name: Archive built app
-      run: |
-        APP_DIR="ios/build/Build/Products/Debug-iphonesimulator"
-        echo "Looking for .app in: $APP_DIR"
-        ls -la "$APP_DIR" || true
-        cd "$APP_DIR"
-        zip -r $GITHUB_WORKSPACE/jitsi-meet-ios-simulator.zip *.app
-
-    - name: Upload iOS artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: jitsi-meet-ios-simulator
-        path: jitsi-meet-ios-simulator.zip
-        retention-days: 30
+      - name: Upload artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jitsi-meet-ios-simulator
+          path: jitsi-meet-ios-simulator.zip
+          retention-days: 30
