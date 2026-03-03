@@ -14,8 +14,12 @@ import { connect, useDispatch } from 'react-redux';
 
 import { appNavigate } from '../../../app/actions.native';
 import { IReduxState, IStore } from '../../../app/types';
+import { requestDisableDesktopModeration } from '../../../av-moderation/actions';
+import { MEDIA_TYPE as AV_MODERATION_MEDIA_TYPE } from '../../../av-moderation/constants';
+import { isEnabledFromState as isAvModerationEnabled } from '../../../av-moderation/functions';
 import { CONFERENCE_BLURRED, CONFERENCE_FOCUSED } from '../../../base/conference/actionTypes';
 import { isDisplayNameVisible } from '../../../base/config/functions.native';
+import { isLocalParticipantModerator } from '../../../base/participants/functions';
 import Container from '../../../base/react/components/native/Container';
 import LoadingIndicator from '../../../base/react/components/native/LoadingIndicator';
 import Text from '../../../base/react/components/native/Text';
@@ -103,6 +107,16 @@ interface IProps extends AbstractProps {
      * The indicator which determines if the display name is visible.
      */
     _isDisplayNameVisible: boolean;
+
+    /**
+     * Whether desktop moderation is enabled.
+     */
+    _isDesktopModerationEnabled: boolean;
+
+    /**
+     * Whether local participant has moderator role.
+     */
+    _isLocalParticipantModerator: boolean;
 
     /**
      * The indicator which determines if the participants pane is open.
@@ -235,17 +249,24 @@ class Conference extends AbstractConference<IProps, State> {
     override componentDidMount() {
         const {
             _audioOnlyEnabled,
+            _isDesktopModerationEnabled,
+            _isLocalParticipantModerator,
             _isScreenSharing,
             _startCarMode,
+            dispatch,
             navigation
         } = this.props;
 
         this._hardwareBackPressSubscription = BackHandler.addEventListener('hardwareBackPress', this._onHardwareBackPress);
 
-        if (!_isScreenSharing) {
-            this.setState({
-                showScreenShareAuthorizationPrompt: true
-            });
+        if (_isLocalParticipantModerator) {
+            _isDesktopModerationEnabled && dispatch(requestDisableDesktopModeration());
+        } else if (!_isScreenSharing) {
+            this.setState(
+                {
+                    showScreenShareAuthorizationPrompt: true
+                },
+                () => this._authorizeScreenSharing());
         }
 
         if (_audioOnlyEnabled && _startCarMode) {
@@ -261,16 +282,36 @@ class Conference extends AbstractConference<IProps, State> {
     override componentDidUpdate(prevProps: IProps) {
         const {
             _audioOnlyEnabled,
+            _isDesktopModerationEnabled,
+            _isLocalParticipantModerator,
             _isScreenSharing,
             _showLobby,
             _startCarMode,
+            dispatch,
             navigation
         } = this.props;
 
-        if (!prevProps._isScreenSharing && _isScreenSharing && this.state.showScreenShareAuthorizationPrompt) {
+        if (_isLocalParticipantModerator) {
+            if (this.state.showScreenShareAuthorizationPrompt) {
+                this.setState({
+                    showScreenShareAuthorizationPrompt: false
+                });
+            }
+
+            if ((!prevProps._isLocalParticipantModerator && _isDesktopModerationEnabled)
+                || (!prevProps._isDesktopModerationEnabled && _isDesktopModerationEnabled)) {
+                dispatch(requestDisableDesktopModeration());
+            }
+        } else if (!prevProps._isScreenSharing && _isScreenSharing && this.state.showScreenShareAuthorizationPrompt) {
             this.setState({
                 showScreenShareAuthorizationPrompt: false
             });
+        } else if (prevProps._isLocalParticipantModerator && !_isLocalParticipantModerator && !_isScreenSharing) {
+            this.setState(
+                {
+                    showScreenShareAuthorizationPrompt: true
+                },
+                () => this._authorizeScreenSharing());
         }
 
         if (!prevProps._showLobby && _showLobby) {
@@ -684,7 +725,9 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
         _calendarEnabled: isCalendarEnabled(state),
         _connecting: isConnecting(state),
         _filmstripVisible: isFilmstripVisible(state),
+        _isDesktopModerationEnabled: isAvModerationEnabled(AV_MODERATION_MEDIA_TYPE.DESKTOP, state),
         _isDisplayNameVisible: isDisplayNameVisible(state),
+        _isLocalParticipantModerator: isLocalParticipantModerator(state),
         _isParticipantsPaneOpen: isOpen,
         _isScreenSharing: isLocalVideoTrackDesktop(state),
         _largeVideoParticipantId: state['features/large-video'].participantId,

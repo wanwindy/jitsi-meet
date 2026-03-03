@@ -5,12 +5,10 @@ import { connect } from 'react-redux';
 import { IReduxState } from '../../../app/types';
 import {
     getConferenceName,
-    getConferenceTimestamp,
     getRoomName
 } from '../../../base/conference/functions';
 import {
     AUDIO_DEVICE_BUTTON_ENABLED,
-    CONFERENCE_TIMER_ENABLED,
     TOGGLE_CAMERA_BUTTON_ENABLED
 } from '../../../base/flags/constants';
 import { getFeatureFlag } from '../../../base/flags/functions';
@@ -146,13 +144,9 @@ const TitleBar = (props: IProps) => {
  * @returns {IProps}
  */
 function _mapStateToProps(state: IReduxState) {
-    const { hideConferenceTimer } = state['features/base/config'];
-    const startTimestamp = getConferenceTimestamp(state);
-
     return {
         _audioDeviceButtonEnabled: getFeatureFlag(state, AUDIO_DEVICE_BUTTON_ENABLED, true),
-        _conferenceTimerEnabled:
-            Boolean(getFeatureFlag(state, CONFERENCE_TIMER_ENABLED, true) && !hideConferenceTimer && startTimestamp),
+        _conferenceTimerEnabled: false,
         _isParticipantsPaneEnabled: isParticipantsPaneEnabled(state),
         _meetingName: getRoomName(state) || getConferenceName(state),
         _roomNameEnabled: isRoomNameEnabled(state),
