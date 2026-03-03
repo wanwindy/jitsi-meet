@@ -46,6 +46,9 @@ jobs:
           --assets-dest /tmp/ios-assets \
           --reset-cache
 
+    - name: Download iOS Simulator platform
+      run: xcodebuild -downloadPlatform iOS
+
     - name: Build iOS app (no signing)
       run: |
         set -o pipefail
