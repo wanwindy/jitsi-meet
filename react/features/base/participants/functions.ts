@@ -552,6 +552,32 @@ export function getParticipantPresenceStatus(stateful: IStateful, id: string) {
  * @returns {Map<string, Object>}
  */
 export function getRemoteParticipants(stateful: IStateful): Map<string, IParticipant> {
+    const state = toState(stateful);
+    const { remote } = state['features/base/participants'];
+
+    // Filter out virtual screenshare participants to avoid duplicate accounts and audio echo
+    const realParticipants = new Map<string, IParticipant>();
+
+    remote.forEach((participant, id) => {
+        // Only include real participants, exclude virtual screenshare participants
+        if (!isScreenShareParticipant(participant)) {
+            realParticipants.set(id, participant);
+        }
+    });
+
+    return realParticipants;
+}
+
+/**
+ * Returns all remote participants including virtual screenshare participants.
+ * Use this only when you specifically need screenshare participants.
+ *
+ * @param {(Function|Object)} stateful - The (whole) redux state, or redux's
+ * {@code getState} function to be used to retrieve the state
+ * features/base/participants.
+ * @returns {Map<string, IParticipant>}
+ */
+export function getAllRemoteParticipants(stateful: IStateful): Map<string, IParticipant> {
     return toState(stateful)['features/base/participants'].remote;
 }
 
