@@ -533,7 +533,8 @@ export default {
         const state = APP.store.getState();
         const initialOptions = {
             startAudioOnly: config.startAudioOnly,
-            startScreenSharing: config.startScreenSharing,
+            // startScreenSharing will be determined after role is assigned
+            startScreenSharing: false,
             startWithAudioMuted: getStartWithAudioMuted(state) || isUserInteractionRequiredForUnmute(state),
             startWithVideoMuted: getStartWithVideoMuted(state) || isUserInteractionRequiredForUnmute(state)
         };
@@ -1877,6 +1878,22 @@ export default {
             dispatch(muteLocal(true, MEDIA_TYPE.VIDEO));
             dispatch(setAudioUnmutePermissions(true, true));
             dispatch(setVideoUnmutePermissions(true, true));
+        }
+
+        // Auto screen sharing logic: only for non-moderators (participants)
+        if (config.startScreenSharing) {
+            // Wait a bit for role to be assigned
+            setTimeout(() => {
+                const state = APP.store.getState();
+                const localParticipant = getLocalParticipant(state);
+                const isModerator = localParticipant?.role === 'moderator';
+
+                // Only start screen sharing if user is NOT a moderator
+                if (!isModerator && config._desktopSharingSourceDevice) {
+                    logger.info('Auto-starting screen sharing for participant (non-moderator)');
+                    dispatch(toggleScreensharingA(undefined, false));
+                }
+            }, 1000);
         }
     },
 

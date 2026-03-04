@@ -24,7 +24,10 @@ export interface IJwtState {
 }
 
 PersistenceRegistry.register('features/base/jwt', {
-    knownAvatarUrl: true
+    knownAvatarUrl: true,
+    jwt: true,
+    refreshToken: true,
+    user: true
 });
 
 /**

@@ -14,6 +14,7 @@ import { IParticipant } from '../participants/types';
 import MiddlewareRegistry from '../redux/MiddlewareRegistry';
 import StateListenerRegistry from '../redux/StateListenerRegistry';
 import { parseURIString } from '../util/uri';
+import { APP_WILL_MOUNT } from '../app/actionTypes';
 
 import { SET_JWT } from './actionTypes';
 import { setDelayedLoadOfAvatarUrl, setJWT, setKnownAvatarUrl } from './actions';
@@ -43,6 +44,32 @@ MiddlewareRegistry.register(store => next => action => {
     const state = store.getState();
 
     switch (action.type) {
+    case APP_WILL_MOUNT: {
+        // Restore JWT from persisted state on app startup
+        const { jwt, refreshToken } = state['features/base/jwt'];
+
+        if (jwt) {
+            logger.info('Restoring persisted JWT token on app mount');
+            // The JWT is already in state from persistence, just validate and apply it
+            try {
+                const jwtPayload = jwtDecode(jwt);
+                const now = Date.now() / 1000;
+
+                // Check if token is expired
+                if (jwtPayload.exp && jwtPayload.exp > now) {
+                    logger.info('Persisted JWT is still valid, applying to session');
+                    // Token is valid, it will be used automatically from state
+                } else {
+                    logger.warn('Persisted JWT has expired, clearing it');
+                    store.dispatch(setJWT(undefined));
+                }
+            } catch (e) {
+                logger.error('Failed to decode persisted JWT', e);
+                store.dispatch(setJWT(undefined));
+            }
+        }
+        break;
+    }
     case SET_CONFIG:
     case SET_LOCATION_URL:
         // XXX The JSON Web Token (JWT) is not the only piece of state that we
