@@ -763,6 +763,9 @@ var config = {
     // when the toolbar is shown on mouse movements
     // disable1On1Mode: null | false | true,
 
+    // Disable the always-on-top window that appears when screen sharing
+    disableAlwaysOnTopWindow: true,
+
     // Default local name to be displayed
     // defaultLocalDisplayName: 'me',
 

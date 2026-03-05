@@ -334,15 +334,18 @@ ReducerRegistry.register<IParticipantsState>('features/base/participants',
             }
         }
 
-        // Insert the new participant.
-        const displayName = _getDisplayName(state, name);
-        const sortedRemoteParticipants = Array.from(state.sortedRemoteParticipants);
+        // Only add real participants to sortedRemoteParticipants, exclude virtual screenshare participants
+        if (!isScreenShareParticipant(participant)) {
+            // Insert the new participant.
+            const displayName = _getDisplayName(state, name);
+            const sortedRemoteParticipants = Array.from(state.sortedRemoteParticipants);
 
-        sortedRemoteParticipants.push([ id, displayName ]);
-        sortedRemoteParticipants.sort((a, b) => a[1].localeCompare(b[1]));
+            sortedRemoteParticipants.push([ id, displayName ]);
+            sortedRemoteParticipants.sort((a, b) => a[1].localeCompare(b[1]));
 
-        // The sort order of participants is preserved since Map remembers the original insertion order of the keys.
-        state.sortedRemoteParticipants = new Map(sortedRemoteParticipants);
+            // The sort order of participants is preserved since Map remembers the original insertion order of the keys.
+            state.sortedRemoteParticipants = new Map(sortedRemoteParticipants);
+        }
 
         if (isRemoteScreenshareParticipant(participant)) {
             const sortedRemoteVirtualScreenshareParticipants = [ ...state.sortedRemoteVirtualScreenshareParticipants ];

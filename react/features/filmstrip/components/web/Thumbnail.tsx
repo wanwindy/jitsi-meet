@@ -1371,7 +1371,7 @@ function _mapStateToProps(state: IReduxState, ownProps: any): Object {
         _defaultLocalDisplayName: defaultLocalDisplayName,
         _disableTileEnlargement: Boolean(disableTileEnlargement),
         _isActiveParticipant: isActiveParticipant,
-        _isHidden: isLocal && iAmRecorder && !iAmSipGateway,
+        _isHidden: (isLocal && iAmRecorder && !iAmSipGateway) || isLocalScreenshareParticipant(participant),
         _isAudioOnly: Boolean(state['features/base/audio-only'].enabled),
         _isCurrentlyOnLargeVideo: participantCurrentlyOnLargeVideo,
         _isDominantSpeakerDisabled: interfaceConfig.DISABLE_DOMINANT_SPEAKER_INDICATOR,
