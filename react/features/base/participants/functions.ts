@@ -545,6 +545,7 @@ export function getParticipantPresenceStatus(stateful: IStateful, id: string) {
 
 /**
  * Selectors for getting all remote participants.
+ * This function filters out virtual screenshare participants to prevent duplicates.
  *
  * @param {(Function|Object)} stateful - The (whole) redux state, or redux's
  * {@code getState} function to be used to retrieve the state

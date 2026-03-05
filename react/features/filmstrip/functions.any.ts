@@ -47,11 +47,13 @@ export function updateRemoteParticipants(store: IStore, force?: boolean, partici
     const speakers = new Array<string>();
     const { fullyVisibleRemoteParticipantsCount } = state['features/filmstrip'];
 
+    // For mobile/native, we don't include virtual screenshare participants to avoid duplicates
+    // Only include the owner participant, not the virtual screenshare participant
     const participantsWithScreenShare = screenShareParticipants.reduce<string[]>((acc, screenshare) => {
         const ownerId = getVirtualScreenshareParticipantOwnerId(screenshare);
 
+        // Only add the owner, not the virtual screenshare participant
         acc.push(ownerId);
-        acc.push(screenshare);
         remoteParticipants.delete(ownerId);
         remoteParticipants.delete(screenshare);
         previousSpeakers.delete(ownerId);
@@ -73,7 +75,7 @@ export function updateRemoteParticipants(store: IStore, force?: boolean, partici
     // visible tiles, ensuring dominant speaker is placed on a fully visible tile.
     const slotsForSpeakers
         = fullyVisibleRemoteParticipantsCount
-        - (screenShareParticipants.length * 2)
+        - screenShareParticipants.length  // Changed from * 2 to avoid counting virtual participants
         - sharedVideos.length
         - dominantSpeakerSlot;
 
@@ -90,6 +92,7 @@ export function updateRemoteParticipants(store: IStore, force?: boolean, partici
     }
 
     // Always update the order of the thumbnails.
+    // Don't include virtual screenshare participants to avoid duplicates
     reorderedParticipants = [
         ...participantsWithScreenShare,
         ...sharedVideos,

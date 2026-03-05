@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { ScreenCapturePickerView } from 'react-native-webrtc';
 import { Edge, EdgeInsets, SafeAreaView, withSafeAreaInsets } from 'react-native-safe-area-context';
-import { connect, useDispatch } from 'react-redux';
+import { connect, useDispatch, useSelector } from 'react-redux';
 
 import { appNavigate } from '../../../app/actions.native';
 import { IReduxState, IStore } from '../../../app/types';
@@ -379,18 +379,21 @@ class Conference extends AbstractConference<IProps, State> {
     /**
      * Handles a hardware button press for back navigation. Enters Picture-in-Picture mode
      * (if supported) or leaves the associated {@code Conference} otherwise.
+     * Disabled when screen sharing to prevent floating window.
      *
      * @returns {boolean} Exiting the app is undesired, so {@code true} is always returned.
      */
     _onHardwareBackPress() {
+        const { _isScreenSharing, _pictureInPictureEnabled } = this.props;
         let p;
 
-        if (this.props._pictureInPictureEnabled) {
+        // Disable PiP when screen sharing to avoid floating window
+        if (_pictureInPictureEnabled && !_isScreenSharing) {
             const { PictureInPicture } = NativeModules;
 
             p = PictureInPicture.enterPictureInPicture();
         } else {
-            p = Promise.reject(new Error('PiP not enabled'));
+            p = Promise.reject(new Error('PiP not enabled or screen sharing active'));
         }
 
         p.catch(() => {
@@ -741,16 +744,20 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
 
 export default withSafeAreaInsets(connect(_mapStateToProps)(props => {
     const dispatch = useDispatch();
+    const isScreenSharing = useSelector((state: IReduxState) => isLocalVideoTrackDesktop(state));
 
     useFocusEffect(useCallback(() => {
         dispatch({ type: CONFERENCE_FOCUSED });
-        setPictureInPictureEnabled(true);
+        // Disable PiP when screen sharing to prevent floating window
+        if (!isScreenSharing) {
+            setPictureInPictureEnabled(true);
+        }
 
         return () => {
             dispatch({ type: CONFERENCE_BLURRED });
             setPictureInPictureEnabled(false);
         };
-    }, []));
+    }, [isScreenSharing]));
 
     return ( // @ts-ignore
         <Conference { ...props } />

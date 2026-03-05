@@ -246,12 +246,18 @@ function _mapStateToProps(state: IReduxState) {
     const participant = getParticipantById(state, participantId ?? '');
     const { clientHeight: height, clientWidth: width } = state['features/base/responsive-ui'];
     const videoTrack = getVideoTrackByParticipant(state, participant);
+    const localParticipant = state['features/base/participants'].local;
+    const isLocalModerator = localParticipant?.role === 'moderator';
     let disableVideo = false;
 
     if (isLocalScreenshareParticipant(participant)) {
         disableVideo = true;
     } else if (participant?.local) {
-        disableVideo = isLocalVideoTrackDesktop(state);
+        // Only disable video for non-moderators when they are screen sharing
+        // Moderators can see their own screen share
+        if (isLocalVideoTrackDesktop(state) && !isLocalModerator) {
+            disableVideo = true;
+        }
     }
 
     return {
