@@ -213,6 +213,31 @@ jobs:
           name: fangxinban-ios-ipa
           path: ios/build/ipa/*.ipa
           retention-days: 30
+      # ---- Upload to TestFlight ----
+      - name: Upload to TestFlight
+        if: success()
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          # Decode API key to the path altool expects
+          mkdir -p ~/.private_keys
+          echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode -o ~/.private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+
+          # Find IPA file
+          IPA_FILE=$(find ios/build/ipa -name "*.ipa" -type f | head -1)
+          echo "Uploading IPA: $IPA_FILE"
+
+          # Upload to TestFlight
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_FILE" \
+            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID" \
+            2>&1 | tee $GITHUB_WORKSPACE/upload.log
+
+          echo "✅ Upload to TestFlight completed!"
 
       # ---- Cleanup ----
       - name: Cleanup signing
