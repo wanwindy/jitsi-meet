@@ -38,9 +38,6 @@ jobs:
           xcodebuild -version
           xcode-select -p
 
-      - name: Download iOS platform
-        run: xcodebuild -downloadPlatform iOS
-
       - name: Install CocoaPods
         run: |
           sudo gem install cocoapods -N
