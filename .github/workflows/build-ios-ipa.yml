@@ -25,8 +25,21 @@ jobs:
 
       - name: Select Xcode
         run: |
+          # Remove default Xcode symlink to avoid duplicate SwiftBridging module
+          if [ -e /Applications/Xcode.app ]; then
+            XCODE_162="$(readlink -f /Applications/Xcode_16.2.app 2>/dev/null || echo /Applications/Xcode_16.2.app)"
+            XCODE_DEF="$(readlink -f /Applications/Xcode.app 2>/dev/null || echo /Applications/Xcode.app)"
+            if [ "$XCODE_162" != "$XCODE_DEF" ]; then
+              sudo mv /Applications/Xcode.app /Applications/Xcode_default.bak
+              echo "Moved conflicting Xcode.app out of the way"
+            fi
+          fi
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           xcodebuild -version
           xcode-select -p
+
+      - name: Download iOS platform
+        run: xcodebuild -downloadPlatform iOS
 
       - name: Install CocoaPods
         run: |
@@ -133,8 +146,10 @@ jobs:
         run: |
           echo "=== pod_install.log tail ==="
           tail -n 100 pod_install.log 2>/dev/null || true
+          echo "=== archive.log errors ==="
+          grep -iE 'error:|BUILD FAILED|ARCHIVE FAILED|fatal' archive.log 2>/dev/null | tail -n 50 || true
           echo "=== archive.log tail ==="
-          tail -n 300 archive.log 2>/dev/null || true
+          tail -n 500 archive.log 2>/dev/null || true
           echo "=== export.log tail ==="
           tail -n 200 export.log 2>/dev/null || true
           echo "=== IPA output ==="
