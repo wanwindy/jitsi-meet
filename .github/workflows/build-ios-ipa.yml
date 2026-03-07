@@ -51,20 +51,23 @@ jobs:
           pod install 2>&1 | tee $GITHUB_WORKSPACE/pod_install.log
 
       # ---- Signing Setup ----
-      - name: Install signing certificate and provisioning profile
+      - name: Install signing certificate and provisioning profiles
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          BROADCAST_PROVISION_PROFILE_BASE64: ${{ secrets.BROADCAST_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          # Decode certificate and profile
+          # Decode certificate and profiles
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          APP_PP_PATH=$RUNNER_TEMP/app.mobileprovision
+          BROADCAST_PP_PATH=$RUNNER_TEMP/broadcast.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $APP_PP_PATH
+          echo -n "$BROADCAST_PROVISION_PROFILE_BASE64" | base64 --decode -o $BROADCAST_PP_PATH
 
           # Create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -76,14 +79,23 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
-          # Install provisioning profile
+          # Install provisioning profiles
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp $APP_PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp $BROADCAST_PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-          # Extract provisioning profile UUID for later use
-          PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $PP_PATH))
-          echo "PP_UUID=$PP_UUID" >> $GITHUB_ENV
-          echo "Provisioning Profile UUID: $PP_UUID"
+          # Extract UUIDs and Team ID
+          APP_PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $APP_PP_PATH))
+          BROADCAST_PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $BROADCAST_PP_PATH))
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /dev/stdin <<< $(/usr/bin/security cms -D -i $APP_PP_PATH))
+
+          echo "APP_PP_UUID=$APP_PP_UUID" >> $GITHUB_ENV
+          echo "BROADCAST_PP_UUID=$BROADCAST_PP_UUID" >> $GITHUB_ENV
+          echo "TEAM_ID=$TEAM_ID" >> $GITHUB_ENV
+
+          echo "App Profile UUID: $APP_PP_UUID"
+          echo "Broadcast Profile UUID: $BROADCAST_PP_UUID"
+          echo "Team ID: $TEAM_ID"
 
       # ---- Create ExportOptions.plist ----
       - name: Create ExportOptions.plist
@@ -96,13 +108,15 @@ jobs:
               <key>method</key>
               <string>app-store</string>
               <key>teamID</key>
-              <string>$(security find-certificate -c "iPhone Distribution" -p $RUNNER_TEMP/app-signing.keychain-db | openssl x509 -noout -subject | grep -oE 'OU = [^/,]+' | head -1 | sed 's/OU = //')</string>
+              <string>${TEAM_ID}</string>
               <key>signingStyle</key>
               <string>manual</string>
               <key>provisioningProfiles</key>
               <dict>
                   <key>com.fangxinban.app</key>
-                  <string>${PP_UUID}</string>
+                  <string>${APP_PP_UUID}</string>
+                  <key>com.fangxinban.app.broadcast</key>
+                  <string>${BROADCAST_PP_UUID}</string>
               </dict>
               <key>compileBitcode</key>
               <false/>
@@ -126,10 +140,9 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath ios/build/JitsiMeet.xcarchive \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            PRODUCT_BUNDLE_IDENTIFIER=com.fangxinban.app \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="iPhone Distribution" \
-            PROVISIONING_PROFILE="$PP_UUID" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             2>&1 | tee $GITHUB_WORKSPACE/archive.log
 
       - name: Export IPA
@@ -169,4 +182,5 @@ jobs:
         run: |
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
           rm -f $RUNNER_TEMP/build_certificate.p12
-          rm -f $RUNNER_TEMP/build_pp.mobileprovision
+          rm -f $RUNNER_TEMP/app.mobileprovision
+          rm -f $RUNNER_TEMP/broadcast.mobileprovision
