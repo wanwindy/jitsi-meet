@@ -128,6 +128,54 @@ jobs:
           echo "=== ExportOptions.plist ==="
           cat ios/ExportOptions.plist
 
+      # ---- Inject provisioning profiles into Xcode project ----
+      - name: Set provisioning profiles in Xcode project
+        run: |
+          PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
+
+          # For JitsiMeet target (Debug + Release): set provisioning profile
+          sed -i '' "s/CODE_SIGN_IDENTITY = \"Apple Development\"/CODE_SIGN_IDENTITY = \"Apple Distribution\"/g" "$PBXPROJ"
+          sed -i '' "s/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g" "$PBXPROJ"
+          sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\"/PROVISIONING_PROFILE_SPECIFIER = \"\"/g" "$PBXPROJ"
+
+          # Set PROVISIONING_PROFILE for main app target (com.fangxinban.app)
+          # We use python to do precise per-target replacement
+          python3 << 'PYEOF'
+          import re
+
+          with open("ios/app/app.xcodeproj/project.pbxproj", "r") as f:
+              content = f.read()
+
+          # Replace PROVISIONING_PROFILE_SPECIFIER for main app bundle ID sections
+          # After each PRODUCT_BUNDLE_IDENTIFIER = com.fangxinban.app, add/update PROVISIONING_PROFILE
+          import os
+          app_uuid = os.environ["APP_PP_UUID"]
+          broadcast_uuid = os.environ["BROADCAST_PP_UUID"]
+
+          # For each build config block, find bundle ID and inject provisioning profile
+          lines = content.split('\n')
+          new_lines = []
+          i = 0
+          while i < len(lines):
+              new_lines.append(lines[i])
+              stripped = lines[i].strip()
+              if stripped == 'PRODUCT_BUNDLE_IDENTIFIER = com.fangxinban.app;':
+                  indent = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
+                  new_lines.append(f'{indent}PROVISIONING_PROFILE = "{app_uuid}";')
+                  new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "";')
+              elif stripped == 'PRODUCT_BUNDLE_IDENTIFIER = com.fangxinban.app.broadcast;':
+                  indent = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
+                  new_lines.append(f'{indent}PROVISIONING_PROFILE = "{broadcast_uuid}";')
+                  new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "";')
+              i += 1
+
+          with open("ios/app/app.xcodeproj/project.pbxproj", "w") as f:
+              f.write('\n'.join(new_lines))
+
+          print(f"Injected app profile: {app_uuid}")
+          print(f"Injected broadcast profile: {broadcast_uuid}")
+          PYEOF
+
       # ---- Build & Archive ----
       - name: Archive iOS app
         run: |
