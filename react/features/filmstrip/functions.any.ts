@@ -48,18 +48,17 @@ export function updateRemoteParticipants(store: IStore, force?: boolean, partici
     const { fullyVisibleRemoteParticipantsCount } = state['features/filmstrip'];
 
     // For mobile/native, we don't include virtual screenshare participants to avoid duplicates
-    // Only include the owner participant, not the virtual screenshare participant
-    const participantsWithScreenShare = screenShareParticipants.reduce<string[]>((acc, screenshare) => {
+    // Remove both the virtual screenshare participant and don't duplicate the owner
+    screenShareParticipants.forEach(screenshare => {
         const ownerId = getVirtualScreenshareParticipantOwnerId(screenshare);
 
-        // Only add the owner, not the virtual screenshare participant
-        acc.push(ownerId);
-        remoteParticipants.delete(ownerId);
+        // Remove the virtual screenshare participant from the list
         remoteParticipants.delete(screenshare);
+        // Don't remove the owner - they should appear normally in the participant list
         previousSpeakers.delete(ownerId);
+    });
 
-        return acc;
-    }, []);
+    const participantsWithScreenShare: string[] = [];
 
     for (const sharedVideo of sharedVideos) {
         remoteParticipants.delete(sharedVideo);
@@ -75,7 +74,6 @@ export function updateRemoteParticipants(store: IStore, force?: boolean, partici
     // visible tiles, ensuring dominant speaker is placed on a fully visible tile.
     const slotsForSpeakers
         = fullyVisibleRemoteParticipantsCount
-        - screenShareParticipants.length  // Changed from * 2 to avoid counting virtual participants
         - sharedVideos.length
         - dominantSpeakerSlot;
 
@@ -92,9 +90,8 @@ export function updateRemoteParticipants(store: IStore, force?: boolean, partici
     }
 
     // Always update the order of the thumbnails.
-    // Don't include virtual screenshare participants to avoid duplicates
+    // Don't include virtual screenshare participants or duplicate owners
     reorderedParticipants = [
-        ...participantsWithScreenShare,
         ...sharedVideos,
         ...speakers,
         ...Array.from(remoteParticipants.keys())
