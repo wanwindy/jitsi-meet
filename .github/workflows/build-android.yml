@@ -37,8 +37,12 @@ jobs:
 
     - name: Build release APK
       working-directory: ./android
+      # 这里增加了超时限制参数，解决 JitPack Read timed out 问题
       run: |
         ./gradlew :app:assembleRelease \
+          -Dorg.gradle.internal.http.socketTimeout=300000 \
+          -Dorg.gradle.internal.http.connectionTimeout=300000 \
+          -Dorg.gradle.http.retries=3 \
           -Pandroid.injected.signing.store.file=$PWD/app/my-release.keystore \
           -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_STORE_PASSWORD }}" \
           -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
@@ -48,5 +52,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: jitsi-meet-release-apk
+        # 确保路径匹配你的项目结构，如果报错找不到文件，请检查此路径
         path: android/app/build/outputs/apk/release/*.apk
         retention-days: 30
