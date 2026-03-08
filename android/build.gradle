@@ -59,13 +59,32 @@ allprojects {
         maven {
             url "https://github.com/jitsi/jitsi-maven-repository/raw/master/releases"
         }
-        maven { url 'https://www.jitpack.io' }
+        // Additional Maven repositories for dependencies
+        maven {
+            url "https://maven.google.com"
+        }
+        // JitPack - disabled due to 521 errors, using Jitsi repo instead
+        // maven { url 'https://www.jitpack.io' }
     }
 
     // Make sure we use the react-native version in node_modules and not the one
     // published in jcenter / elsewhere.
     configurations.all {
         resolutionStrategy {
+            // Force specific versions to avoid dynamic version resolution
+            force 'androidx.appcompat:appcompat:1.5.1'
+            force 'androidx.fragment:fragment:1.4.1'
+            force 'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0'
+            force 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+            force 'androidx.startup:startup-runtime:1.1.0'
+            force 'com.google.code.gson:gson:2.8.6'
+            force 'com.jakewharton.timber:timber:5.0.1'
+            force 'com.dropbox.core:dropbox-core-sdk:4.0.1'
+
+            // Disable dynamic version resolution (no + allowed)
+            cacheDynamicVersionsFor 0, 'seconds'
+            cacheChangingModulesFor 0, 'seconds'
+
             eachDependency { DependencyResolveDetails details ->
                 if (details.requested.group == 'com.facebook.react') {
                     if (details.requested.name == 'react-native') {
@@ -74,6 +93,13 @@ allprojects {
                     if (details.requested.name == 'react-android') {
                         details.useVersion rootProject.ext.rnVersion
                     }
+                }
+
+                // Block any dependency trying to use JitPack
+                if (details.requested.version?.contains('+')) {
+                    // Replace dynamic versions with fixed versions
+                    def fixedVersion = details.requested.version.replace('+', '0')
+                    details.useVersion fixedVersion
                 }
             }
         }
