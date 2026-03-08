@@ -9,10 +9,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { connect } from 'react-redux';
 
-import { login } from '../../authentication/actions.native';
 import { appNavigate } from '../../app/actions.native';
 import { getName } from '../../app/functions.native';
 import { IReduxState } from '../../app/types';
+import { login } from '../../authentication/actions.native';
 import { translate } from '../../base/i18n/functions';
 import Text from '../../base/react/components/native/Text';
 import Input from '../../base/ui/components/native/Input';

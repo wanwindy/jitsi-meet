@@ -2,14 +2,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback } from 'react';
 import {
     BackHandler,
-    findNodeHandle,
     NativeModules,
     Platform,
     View,
-    ViewStyle
+    ViewStyle,
+    findNodeHandle
 } from 'react-native';
-import { ScreenCapturePickerView } from 'react-native-webrtc';
 import { Edge, EdgeInsets, SafeAreaView, withSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenCapturePickerView } from 'react-native-webrtc';
 import { connect, useDispatch, useSelector } from 'react-redux';
 
 import { appNavigate } from '../../../app/actions.native';
@@ -104,14 +104,14 @@ interface IProps extends AbstractProps {
     _filmstripVisible: boolean;
 
     /**
-     * The indicator which determines if the display name is visible.
-     */
-    _isDisplayNameVisible: boolean;
-
-    /**
      * Whether desktop moderation is enabled.
      */
     _isDesktopModerationEnabled: boolean;
+
+    /**
+     * The indicator which determines if the display name is visible.
+     */
+    _isDisplayNameVisible: boolean;
 
     /**
      * Whether local participant has moderator role.
@@ -203,7 +203,7 @@ class Conference extends AbstractConference<IProps, State> {
     _expandedLabelTimeout: any;
 
     /**
-     * iOS screen capture picker reference.
+     * IOS screen capture picker reference.
      */
     _screenCapturePickerViewRef: React.Component<any, any> | null;
 
@@ -757,7 +757,7 @@ export default withSafeAreaInsets(connect(_mapStateToProps)(props => {
             dispatch({ type: CONFERENCE_BLURRED });
             setPictureInPictureEnabled(false);
         };
-    }, [isScreenSharing]));
+    }, [ isScreenSharing ]));
 
     return ( // @ts-ignore
         <Conference { ...props } />

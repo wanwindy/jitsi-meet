@@ -55,6 +55,10 @@ allprojects {
     repositories {
         mavenCentral()
         google()
+        // Jitsi official Maven repository (added before JitPack to avoid 521 errors)
+        maven {
+            url "https://github.com/jitsi/jitsi-maven-repository/raw/master/releases"
+        }
         maven { url 'https://www.jitpack.io' }
     }
 

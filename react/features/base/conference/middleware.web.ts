@@ -1,12 +1,11 @@
 import i18next from 'i18next';
 
+import { toggleScreensharing } from '../../base/tracks/actions.web';
 import {
     setPrejoinPageVisibility,
     setSkipPrejoinOnReload
 } from '../../prejoin/actions.web';
 import { isPrejoinPageVisible } from '../../prejoin/functions';
-import { toggleScreensharing } from '../../base/tracks/actions.web';
-import { isLocalParticipantModerator } from '../participants/functions';
 import { iAmVisitor } from '../../visitors/functions';
 import { CONNECTION_DISCONNECTED, CONNECTION_ESTABLISHED } from '../connection/actionTypes';
 import { hangup } from '../connection/actions.web';
@@ -14,6 +13,7 @@ import { JitsiConferenceErrors, JitsiConnectionErrors, browser } from '../lib-ji
 import { gumPending, setInitialGUMPromise } from '../media/actions';
 import { MEDIA_TYPE } from '../media/constants';
 import { IGUMPendingState } from '../media/types';
+import { isLocalParticipantModerator } from '../participants/functions';
 import MiddlewareRegistry from '../redux/MiddlewareRegistry';
 import { replaceLocalTrack } from '../tracks/actions.any';
 import { getLocalTracks } from '../tracks/functions.any';
@@ -116,6 +116,7 @@ MiddlewareRegistry.register(store => next => action => {
 
         // Auto-start screen sharing for non-moderators
         const state = getState();
+
         if (!isLocalParticipantModerator(state)) {
             // Delay to ensure conference is fully established
             setTimeout(() => {

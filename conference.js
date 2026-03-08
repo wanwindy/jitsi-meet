@@ -533,6 +533,7 @@ export default {
         const state = APP.store.getState();
         const initialOptions = {
             startAudioOnly: config.startAudioOnly,
+
             // startScreenSharing will be determined after role is assigned
             startScreenSharing: false,
             startWithAudioMuted: getStartWithAudioMuted(state) || isUserInteractionRequiredForUnmute(state),

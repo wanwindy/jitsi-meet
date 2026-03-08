@@ -4,6 +4,7 @@ import { AnyAction } from 'redux';
 
 import { IStore } from '../../app/types';
 import { isVpaasMeeting } from '../../jaas/functions';
+import { APP_WILL_MOUNT } from '../app/actionTypes';
 import { authStatusChanged } from '../conference/actions.any';
 import { getCurrentConference } from '../conference/functions';
 import { SET_CONFIG } from '../config/actionTypes';
@@ -14,7 +15,6 @@ import { IParticipant } from '../participants/types';
 import MiddlewareRegistry from '../redux/MiddlewareRegistry';
 import StateListenerRegistry from '../redux/StateListenerRegistry';
 import { parseURIString } from '../util/uri';
-import { APP_WILL_MOUNT } from '../app/actionTypes';
 
 import { SET_JWT } from './actionTypes';
 import { setDelayedLoadOfAvatarUrl, setJWT, setKnownAvatarUrl } from './actions';
