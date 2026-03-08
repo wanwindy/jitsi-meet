@@ -120,11 +120,23 @@ function _updateScreenshareParticipants(store: IStore): void {
         return acc;
     }, []);
 
-    if (!localScreenShare && newLocalSceenshareSourceName) {
+    // Only create local screenshare participant if user is moderator
+    // Non-moderators should not see their own screenshare
+    const { isLocalParticipantModerator } = require('./functions');
+    const isModerator = isLocalParticipantModerator(state);
+
+    if (!localScreenShare && newLocalSceenshareSourceName && isModerator) {
         dispatch(createVirtualScreenshareParticipant(newLocalSceenshareSourceName, true, conference));
     }
 
     if (localScreenShare && !newLocalSceenshareSourceName) {
+        dispatch(participantLeft(localScreenShare.id, conference, {
+            fakeParticipant: FakeParticipant.LocalScreenShare
+        }));
+    }
+
+    // Remove local screenshare participant if user is not moderator
+    if (localScreenShare && newLocalSceenshareSourceName && !isModerator) {
         dispatch(participantLeft(localScreenShare.id, conference, {
             fakeParticipant: FakeParticipant.LocalScreenShare
         }));

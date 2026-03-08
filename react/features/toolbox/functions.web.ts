@@ -75,6 +75,14 @@ export function isDesktopShareButtonDisabled(state: IReduxState) {
     const videoOrShareInProgress = !muted || isScreenMediaShared(state);
     const enabledInJwt = isJwtFeatureEnabled(state, MEET_FEATURES.SCREEN_SHARING, true);
 
+    // Import isLocalParticipantModerator from participants functions
+    const { isLocalParticipantModerator } = require('../base/participants/functions');
+
+    // Disable screen sharing for moderators
+    if (isLocalParticipantModerator(state)) {
+        return true;
+    }
+
     return !enabledInJwt || (unmuteBlocked && !videoOrShareInProgress);
 }
 
