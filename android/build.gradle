@@ -53,17 +53,23 @@ buildscript {
 
 allprojects {
     repositories {
+        // 本地 node_modules 优先（解决 react-native 版本问题）
+        maven {
+            url "$rootDir/../node_modules/react-native/android"
+        }
+        maven {
+            url "$rootDir/../node_modules/jsc-android/dist"
+        }
+
         mavenCentral()
         google()
-        // Jitsi official Maven repository (added before JitPack to avoid 521 errors)
+
+        // Jitsi 官方 Maven 仓库（包含 WebRTC 等依赖）
         maven {
             url "https://github.com/jitsi/jitsi-maven-repository/raw/master/releases"
         }
-        // Additional Maven repositories for dependencies
-        maven {
-            url "https://maven.google.com"
-        }
-        // JitPack - disabled due to 521 errors, using Jitsi repo instead
+
+        // JitPack - 已禁用，使用 Jitsi 仓库替代
         // maven { url 'https://www.jitpack.io' }
     }
 
@@ -71,21 +77,12 @@ allprojects {
     // published in jcenter / elsewhere.
     configurations.all {
         resolutionStrategy {
-            // Force specific versions to avoid dynamic version resolution
-            force 'androidx.appcompat:appcompat:1.5.1'
-            force 'androidx.fragment:fragment:1.4.1'
-            force 'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0'
-            force 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
-            force 'androidx.startup:startup-runtime:1.1.0'
-            force 'com.google.code.gson:gson:2.8.6'
-            force 'com.jakewharton.timber:timber:5.0.1'
-            force 'com.dropbox.core:dropbox-core-sdk:4.0.1'
-
-            // Disable dynamic version resolution (no + allowed)
+            // 禁用动态版本缓存（不允许使用 + 号）
             cacheDynamicVersionsFor 0, 'seconds'
             cacheChangingModulesFor 0, 'seconds'
 
             eachDependency { DependencyResolveDetails details ->
+                // React Native 版本控制 - 使用本地 node_modules 版本
                 if (details.requested.group == 'com.facebook.react') {
                     if (details.requested.name == 'react-native') {
                         details.useTarget "com.facebook.react:react-android:$rnVersion"
@@ -95,12 +92,8 @@ allprojects {
                     }
                 }
 
-                // Block any dependency trying to use JitPack
-                if (details.requested.version?.contains('+')) {
-                    // Replace dynamic versions with fixed versions
-                    def fixedVersion = details.requested.version.replace('+', '0')
-                    details.useVersion fixedVersion
-                }
+                // 处理动态版本号 - 不要强制替换，让 Gradle 从可用仓库中解析
+                // 移除之前的 + 号替换逻辑，因为会导致找不到版本
             }
         }
     }

@@ -40,6 +40,32 @@ jobs:
           pod repo update 2>&1 | tee $GITHUB_WORKSPACE/pod_repo_update.log
           pod install 2>&1 | tee $GITHUB_WORKSPACE/pod_install.log
 
+      # ---- Auto-increment Build Number ----
+      - name: Auto-increment Build Number
+        run: |
+          # Use GitHub run number as build number
+          BUILD_NUMBER=${{ github.run_number }}
+          echo "Setting Build Number to: $BUILD_NUMBER"
+
+          # Update main app Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/app/src/Info.plist
+
+          # Update broadcast extension Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/app/broadcast-extension/Info.plist
+
+          # Update SDK Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/sdk/src/Info.plist
+
+          # Verify changes
+          echo "=== Main App Build Number ==="
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ios/app/src/Info.plist
+          echo "=== Broadcast Extension Build Number ==="
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ios/app/broadcast-extension/Info.plist
+          echo "=== SDK Build Number ==="
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ios/sdk/src/Info.plist
+
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+
       # ---- Signing Setup ----
       - name: Install signing certificate and provisioning profiles
         env:
@@ -210,7 +236,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: fangxinban-ios-ipa
+          name: fangxinban-ios-ipa-build-${{ env.BUILD_NUMBER }}
           path: ios/build/ipa/*.ipa
           retention-days: 30
       # ---- Upload to TestFlight ----
@@ -228,6 +254,7 @@ jobs:
           # Find IPA file
           IPA_FILE=$(find ios/build/ipa -name "*.ipa" -type f | head -1)
           echo "Uploading IPA: $IPA_FILE"
+          echo "Build Number: $BUILD_NUMBER"
 
           # Upload to TestFlight
           xcrun altool --upload-app \
@@ -238,6 +265,7 @@ jobs:
             2>&1 | tee $GITHUB_WORKSPACE/upload.log
 
           echo "✅ Upload to TestFlight completed!"
+          echo "📦 Build Number: $BUILD_NUMBER"
 
       # ---- Cleanup ----
       - name: Cleanup signing
