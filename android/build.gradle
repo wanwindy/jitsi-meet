@@ -69,8 +69,15 @@ allprojects {
             url "https://github.com/jitsi/jitsi-maven-repository/raw/master/releases"
         }
 
-        // JitPack - 已禁用，使用 Jitsi 仓库替代
-        // maven { url 'https://www.jitpack.io' }
+        // JitPack - 重新启用，但增加超时和重试
+        maven {
+            url 'https://www.jitpack.io'
+            content {
+                // 只从 JitPack 获取特定的依赖
+                includeGroup "com.github.jitsi"
+                includeGroup "com.github"
+            }
+        }
     }
 
     // Make sure we use the react-native version in node_modules and not the one
@@ -91,9 +98,6 @@ allprojects {
                         details.useVersion rootProject.ext.rnVersion
                     }
                 }
-
-                // 处理动态版本号 - 不要强制替换，让 Gradle 从可用仓库中解析
-                // 移除之前的 + 号替换逻辑，因为会导致找不到版本
             }
         }
     }

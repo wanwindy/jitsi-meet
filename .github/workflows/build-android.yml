@@ -37,16 +37,48 @@ jobs:
 
     - name: Build release APK
       working-directory: ./android
-      # 这里增加了超时限制参数，解决 JitPack Read timed out 问题
+      # 增加超时限制和重试逻辑，解决 JitPack 不稳定问题
       run: |
-        ./gradlew :app:assembleRelease \
-          -Dorg.gradle.internal.http.socketTimeout=300000 \
-          -Dorg.gradle.internal.http.connectionTimeout=300000 \
-          -Dorg.gradle.http.retries=3 \
-          -Pandroid.injected.signing.store.file=$PWD/app/my-release.keystore \
-          -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_STORE_PASSWORD }}" \
-          -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
-          -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
+        # 定义重试函数
+        retry_build() {
+          local max_attempts=3
+          local attempt=1
+          local delay=30
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "🔨 Build attempt $attempt of $max_attempts..."
+
+            if ./gradlew :app:assembleRelease \
+              -Dorg.gradle.internal.http.socketTimeout=300000 \
+              -Dorg.gradle.internal.http.connectionTimeout=300000 \
+              -Dorg.gradle.http.retries=5 \
+              --refresh-dependencies \
+              -Pandroid.injected.signing.store.file=$PWD/app/my-release.keystore \
+              -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_STORE_PASSWORD }}" \
+              -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+              -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"; then
+              echo "✅ Build succeeded on attempt $attempt"
+              return 0
+            else
+              echo "❌ Build failed on attempt $attempt"
+              if [ $attempt -lt $max_attempts ]; then
+                echo "⏳ Waiting ${delay} seconds before retry..."
+                sleep $delay
+                echo "🧹 Cleaning build cache..."
+                ./gradlew clean
+                rm -rf ~/.gradle/caches/modules-2/files-2.1/com.github.* 2>/dev/null || true
+              fi
+            fi
+
+            attempt=$((attempt + 1))
+          done
+
+          echo "💥 All build attempts failed"
+          return 1
+        }
+
+        # 执行带重试的构建
+        retry_build
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
