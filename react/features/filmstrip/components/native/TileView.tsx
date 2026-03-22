@@ -9,7 +9,10 @@ import { EdgeInsets, SafeAreaView, withSafeAreaInsets } from 'react-native-safe-
 import { connect } from 'react-redux';
 
 import { IReduxState, IStore } from '../../../app/types';
-import { getLocalParticipant, getParticipantCountWithFake } from '../../../base/participants/functions';
+import {
+    getLocalParticipant,
+    getParticipantIdsForMobileDisplay
+} from '../../../base/participants/functions';
 import { ILocalParticipant } from '../../../base/participants/types';
 import { getHideSelfView } from '../../../base/settings/functions.any';
 import { setVisibleRemoteParticipants } from '../../actions.native';
@@ -280,6 +283,19 @@ function _mapStateToProps(state: IReduxState, ownProps: any) {
     const disableSelfView = getHideSelfView(state);
     const { height } = tileViewDimensions?.thumbnailSize ?? {};
     const { columns } = tileViewDimensions ?? {};
+    const localParticipant = getLocalParticipant(state);
+    const mobileDisplayRemoteParticipants = getParticipantIdsForMobileDisplay(
+        state,
+        remoteParticipants,
+        {
+            includeLocalParticipant: Boolean(localParticipant && !disableSelfView)
+        });
+    const mobileDisplayParticipantIds = disableSelfView
+        ? mobileDisplayRemoteParticipants
+        : [
+            ...(localParticipant ? [ localParticipant.id ] : []),
+            ...mobileDisplayRemoteParticipants
+        ];
 
     return {
         _aspectRatio: responsiveUi.aspectRatio,
@@ -287,9 +303,9 @@ function _mapStateToProps(state: IReduxState, ownProps: any) {
         _disableSelfView: disableSelfView,
         _height: responsiveUi.clientHeight - (ownProps.insets?.top || 0),
         _insets: ownProps.insets,
-        _localParticipant: getLocalParticipant(state),
-        _participantCount: getParticipantCountWithFake(state),
-        _remoteParticipants: remoteParticipants,
+        _localParticipant: localParticipant,
+        _participantCount: mobileDisplayParticipantIds.length,
+        _remoteParticipants: mobileDisplayRemoteParticipants,
         _thumbnailHeight: height,
         _width: responsiveUi.clientWidth - (ownProps.insets?.right || 0) - (ownProps.insets?.left || 0)
     };

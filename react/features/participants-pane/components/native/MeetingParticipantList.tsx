@@ -9,6 +9,7 @@ import { IconAddUser } from '../../../base/icons/svg';
 import {
     addPeopleFeatureControl,
     getParticipantById,
+    getParticipantIdsForMobileDisplay,
     isScreenShareParticipant,
     setShareDialogVisiblity
 } from '../../../base/participants/functions';
@@ -148,6 +149,7 @@ function _mapStateToProps(state: IReduxState) {
 
         return !isScreenShareParticipant(participant);
     });
+    sortedParticipantIds = getParticipantIdsForMobileDisplay(state, sortedParticipantIds);
 
     const currentRoomId = getCurrentRoomId(state);
     const currentRoom = getBreakoutRooms(state)[currentRoomId];

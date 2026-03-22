@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import { IReduxState } from '../../../app/types';
 import { translate } from '../../../base/i18n/functions';
 import { IconUsers } from '../../../base/icons/svg';
-import { getParticipantCountForDisplay } from '../../../base/participants/functions';
+import { getParticipantCountForMobileDisplay } from '../../../base/participants/functions';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
 import { navigate }
     from '../../../mobile/navigation/components/conference/ConferenceNavigationContainerRef';
@@ -83,7 +83,7 @@ class ParticipantsPaneButton extends AbstractButton<IProps> {
  */
 function mapStateToProps(state: IReduxState) {
     return {
-        _participantsCount: getParticipantCountForDisplay(state)
+        _participantsCount: getParticipantCountForMobileDisplay(state)
     };
 }
 

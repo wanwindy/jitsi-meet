@@ -11,7 +11,7 @@ import Icon from '../../../base/icons/components/Icon';
 import { IconAddUser } from '../../../base/icons/svg';
 import {
     addPeopleFeatureControl,
-    getParticipantCountWithFake,
+    getParticipantCountForMobileDisplay,
     setShareDialogVisiblity
 } from '../../../base/participants/functions';
 import Button from '../../../base/ui/components/native/Button';
@@ -152,7 +152,7 @@ function _mapStateToProps(state: IReduxState) {
         _inviteOthersControl,
         _isInBreakoutRoom,
         _isInviteFunctionsDisabled: Boolean(!flag || disableInviteFunctions),
-        _isLonelyMeeting: Boolean(conference && getParticipantCountWithFake(state) === 1)
+        _isLonelyMeeting: Boolean(conference && getParticipantCountForMobileDisplay(state) === 1)
     };
 }
 

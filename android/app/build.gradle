@@ -185,3 +185,35 @@ gradle.projectsEvaluated {
 if (googleServicesEnabled) {
     apply plugin: 'com.google.gms.google-services'
 }
+
+// Fix task dependency conflicts for bundleReleaseJsAndAssets
+// Force declare dependencies to avoid Gradle 8.x strict checks
+afterEvaluate {
+    def bundleReleaseJsAndAssets = tasks.findByPath(':sdk:bundleReleaseJsAndAssets')
+    if (bundleReleaseJsAndAssets != null) {
+        // Declare dependencies on all react-native module tasks
+        tasks.matching { task ->
+            task.name.contains('react-native') &&
+            (task.name.contains('compile') || task.name.contains('bundle'))
+        }.all { task ->
+            bundleReleaseJsAndAssets.mustRunAfter(task)
+        }
+
+        // Specifically handle react-native-amplitude
+        def amplitudeTasks = tasks.matching { task ->
+            task.path.contains('react-native-amplitude')
+        }
+        amplitudeTasks.all { task ->
+            bundleReleaseJsAndAssets.mustRunAfter(task)
+        }
+    }
+
+    // Fix resource merging conflicts
+    tasks.matching { task ->
+        task.name.startsWith('merge') && task.name.endsWith('Resources')
+    }.all { mergeTask ->
+        if (bundleReleaseJsAndAssets != null) {
+            mergeTask.mustRunAfter(bundleReleaseJsAndAssets)
+        }
+    }
+}

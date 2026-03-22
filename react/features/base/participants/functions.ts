@@ -17,7 +17,11 @@ import { getFeatureFlag } from '../flags/functions';
 import i18next from '../i18n/i18next';
 import { MEDIA_TYPE, MediaType, VIDEO_TYPE } from '../media/constants';
 import { toState } from '../redux/functions';
-import { getScreenShareTrack, isLocalTrackMuted } from '../tracks/functions.any';
+import {
+    getScreenShareTrack,
+    getTrackByMediaTypeAndParticipant,
+    isLocalTrackMuted
+} from '../tracks/functions.any';
 
 import {
     JIGASI_PARTICIPANT_ICON,
@@ -34,6 +38,17 @@ import { FakeParticipant, IJitsiParticipant, IParticipant, ISourceInfo } from '.
  */
 const AVATAR_QUEUE: Object[] = [];
 const AVATAR_CHECKED_URLS = new Map();
+
+interface IMobileDisplayParticipantIdsOptions {
+    includeLocalParticipant?: boolean;
+}
+
+interface IMobileDisplayParticipantCandidate {
+    hasActiveCameraTrack: boolean;
+    id: string;
+    index: number;
+    participant: IParticipant;
+}
 /* eslint-disable arrow-body-style */
 const AVATAR_CHECKER_FUNCTIONS = [
     (participant: IParticipant) => {
@@ -373,6 +388,20 @@ export function getParticipantCountForDisplay(stateful: IStateful) {
 }
 
 /**
+ * Returns the business account identifier used for native mobile display dedupe.
+ *
+ * @param {IParticipant|undefined} participant - The participant entity.
+ * @returns {string|undefined}
+ */
+export function getParticipantAccountId(participant?: IParticipant): string | undefined {
+    if (!participant || participant.fakeParticipant || isScreenShareParticipant(participant)) {
+        return undefined;
+    }
+
+    return participant.userContext?.id || (participant.local ? participant.jwtId : undefined);
+}
+
+/**
  * Returns participant's display name.
  *
  * @param {(Function|Object)} stateful - The (whole) redux state, or redux's {@code getState} function to be used to
@@ -541,6 +570,90 @@ export function getParticipantPresenceStatus(stateful: IStateful, id: string) {
     }
 
     return participantById.presence;
+}
+
+/**
+ * Returns a list of participant ids deduplicated for native mobile display.
+ * Fake participants and participants without a business account id are not deduplicated.
+ *
+ * @param {(Function|Object)} stateful - The redux state.
+ * @param {string[]} participantIds - The participant ids in display order.
+ * @param {IMobileDisplayParticipantIdsOptions} options - Dedupe options.
+ * @returns {string[]}
+ */
+export function getParticipantIdsForMobileDisplay(
+        stateful: IStateful,
+        participantIds: string[],
+        options: IMobileDisplayParticipantIdsOptions = {}): string[] {
+    const state = toState(stateful);
+    const { includeLocalParticipant = false } = options;
+    const localParticipant = getLocalParticipant(state);
+    const candidateIds = [ ...participantIds ];
+    const inputParticipantIds = new Set(participantIds);
+    const accountCandidates = new Map<string, IMobileDisplayParticipantCandidate>();
+    const orderedBuckets: string[] = [];
+
+    if (includeLocalParticipant && localParticipant?.id && !inputParticipantIds.has(localParticipant.id)) {
+        candidateIds.unshift(localParticipant.id);
+    }
+
+    candidateIds.forEach((participantId, index) => {
+        const participant = getParticipantById(state, participantId);
+
+        if (!participant || participant.isReplaced) {
+            return;
+        }
+
+        const accountId = getParticipantAccountId(participant);
+        const bucketId = accountId ? `account:${accountId}` : `participant:${participant.id}`;
+        const candidate = {
+            hasActiveCameraTrack: _hasActiveCameraTrack(state, participant),
+            id: participant.id,
+            index,
+            participant
+        };
+
+        if (!accountCandidates.has(bucketId)) {
+            orderedBuckets.push(bucketId);
+            accountCandidates.set(bucketId, candidate);
+
+            return;
+        }
+
+        const currentCandidate = accountCandidates.get(bucketId);
+
+        if (currentCandidate && _isBetterMobileDisplayParticipantCandidate(candidate, currentCandidate)) {
+            accountCandidates.set(bucketId, candidate);
+        }
+    });
+
+    return orderedBuckets.reduce((result: string[], bucketId) => {
+        const candidateId = accountCandidates.get(bucketId)?.id;
+
+        if (candidateId && inputParticipantIds.has(candidateId)) {
+            result.push(candidateId);
+        }
+
+        return result;
+    }, []);
+}
+
+/**
+ * Returns the participant count used by native mobile display surfaces.
+ *
+ * @param {(Function|Object)} stateful - The redux state.
+ * @returns {number}
+ */
+export function getParticipantCountForMobileDisplay(stateful: IStateful) {
+    const state = toState(stateful);
+    const localParticipant = getLocalParticipant(state);
+    const remoteParticipantIds = Array.from(state['features/base/participants'].sortedRemoteParticipants.keys());
+    const participantIds = [
+        ...(!iAmVisitor(state) && localParticipant ? [ localParticipant.id ] : []),
+        ...remoteParticipantIds
+    ];
+
+    return getParticipantIdsForMobileDisplay(state, participantIds).length;
 }
 
 /**
@@ -738,6 +851,57 @@ async function _getFirstLoadableAvatarUrl(participant: IParticipant, store: ISto
     }
 
     return undefined;
+}
+
+/**
+ * Returns whether a participant has an active camera track.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @param {IParticipant} participant - The participant.
+ * @returns {boolean}
+ */
+function _hasActiveCameraTrack(state: IReduxState, participant: IParticipant): boolean {
+    const cameraTrack = getTrackByMediaTypeAndParticipant(
+        state['features/base/tracks'],
+        MEDIA_TYPE.VIDEO,
+        participant.id);
+
+    return Boolean(cameraTrack && !cameraTrack.muted && cameraTrack.videoType !== VIDEO_TYPE.DESKTOP);
+}
+
+/**
+ * Returns true if the new candidate should replace the current one for native mobile display dedupe.
+ *
+ * @param {IMobileDisplayParticipantCandidate} candidate - The candidate to compare.
+ * @param {IMobileDisplayParticipantCandidate} currentCandidate - The current representative.
+ * @returns {boolean}
+ */
+function _isBetterMobileDisplayParticipantCandidate(
+        candidate: IMobileDisplayParticipantCandidate,
+        currentCandidate: IMobileDisplayParticipantCandidate): boolean {
+    const currentScore = _getMobileDisplayParticipantCandidateScore(currentCandidate);
+    const candidateScore = _getMobileDisplayParticipantCandidateScore(candidate);
+
+    if (candidateScore === currentScore) {
+        return candidate.index < currentCandidate.index;
+    }
+
+    return candidateScore > currentScore;
+}
+
+/**
+ * Returns a score describing how strongly a participant should be preferred as a display representative.
+ *
+ * @param {IMobileDisplayParticipantCandidate} candidate - The candidate to score.
+ * @returns {number}
+ */
+function _getMobileDisplayParticipantCandidateScore(candidate: IMobileDisplayParticipantCandidate): number {
+    const { hasActiveCameraTrack, participant } = candidate;
+
+    return (participant.local ? 8 : 0)
+        + (!participant.isReplacing ? 4 : 0)
+        + (hasActiveCameraTrack ? 2 : 0)
+        + (participant.dominantSpeaker ? 1 : 0);
 }
 
 /**

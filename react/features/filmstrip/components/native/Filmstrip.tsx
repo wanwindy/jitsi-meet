@@ -4,7 +4,10 @@ import { Edge, SafeAreaView, withSafeAreaInsets } from 'react-native-safe-area-c
 import { connect } from 'react-redux';
 
 import { IReduxState, IStore } from '../../../app/types';
-import { getLocalParticipant } from '../../../base/participants/functions';
+import {
+    getLocalParticipant,
+    getParticipantIdsForMobileDisplay
+} from '../../../base/participants/functions';
 import Platform from '../../../base/react/Platform.native';
 import { ASPECT_RATIO_NARROW } from '../../../base/responsive-ui/constants';
 import { getHideSelfView } from '../../../base/settings/functions.any';
@@ -338,6 +341,13 @@ class Filmstrip extends PureComponent<IProps> {
 function _mapStateToProps(state: IReduxState) {
     const { enabled, remoteParticipants } = state['features/filmstrip'];
     const disableSelfView = getHideSelfView(state);
+    const localParticipant = getLocalParticipant(state);
+    const mobileDisplayRemoteParticipants = getParticipantIdsForMobileDisplay(
+        state,
+        remoteParticipants,
+        {
+            includeLocalParticipant: Boolean(localParticipant && !disableSelfView)
+        });
     const showRemoteVideos = shouldRemoteVideosBeVisible(state);
     const responsiveUI = state['features/base/responsive-ui'];
 
@@ -346,8 +356,8 @@ function _mapStateToProps(state: IReduxState) {
         _clientHeight: responsiveUI.clientHeight,
         _clientWidth: responsiveUI.clientWidth,
         _disableSelfView: disableSelfView,
-        _localParticipantId: getLocalParticipant(state)?.id ?? '',
-        _participants: showRemoteVideos ? remoteParticipants : NO_REMOTE_VIDEOS,
+        _localParticipantId: localParticipant?.id ?? '',
+        _participants: showRemoteVideos ? mobileDisplayRemoteParticipants : NO_REMOTE_VIDEOS,
         _toolboxVisible: isToolboxVisible(state),
         _visible: enabled && isFilmstripVisible(state)
     };

@@ -4,7 +4,7 @@ import { FILMSTRIP_ENABLED } from '../base/flags/constants';
 import { getFeatureFlag } from '../base/flags/functions';
 import {
     getLocalParticipant,
-    getParticipantCountWithFake,
+    getParticipantIdsForMobileDisplay,
     getPinnedParticipant
 } from '../base/participants/functions';
 import Platform from '../base/react/Platform.native';
@@ -37,7 +37,7 @@ export function isFilmstripVisible(stateful: IStateful) {
         return false;
     }
 
-    return getParticipantCountWithFake(state) > 1;
+    return _getMobileDisplayParticipantCount(state) > 1;
 }
 
 /**
@@ -53,10 +53,7 @@ export function shouldRemoteVideosBeVisible(state: IReduxState) {
         return false;
     }
 
-    // Include fake participants to derive how many thumbnails are displayed,
-    // as it is assumed all participants, including fake, will be displayed
-    // in the filmstrip.
-    const participantCount = getParticipantCountWithFake(state);
+    const participantCount = _getMobileDisplayParticipantCount(state);
     const pinnedParticipant = getPinnedParticipant(state);
     const { disable1On1Mode } = state['features/base/config'];
 
@@ -102,10 +99,8 @@ export function getPinnedActiveParticipants(_state: any) {
 export function getTileViewParticipantCount(stateful: IStateful) {
     const state = toState(stateful);
     const disableSelfView = getHideSelfView(state);
-    const localParticipant = getLocalParticipant(state);
-    const participantCount = getParticipantCountWithFake(state) - (disableSelfView && localParticipant ? 1 : 0);
 
-    return participantCount;
+    return _getOrderedMobileDisplayParticipantIds(state, !disableSelfView).length;
 }
 
 /**
@@ -152,9 +147,8 @@ export function isFilmstripScrollVisible(state: IReduxState) {
     const disableSelfView = getHideSelfView(state);
     const localParticipant = Boolean(getLocalParticipant(state));
     const localParticipantVisible = localParticipant && !disableSelfView;
-    const participantCount
-        = getParticipantCountWithFake(state)
-            - (localParticipant && (shouldDisplayLocalThumbnailSeparately() || disableSelfView) ? 1 : 0);
+    const participantCount = _getOrderedMobileDisplayRemoteParticipantIds(state, localParticipantVisible).length
+        + (localParticipantVisible && !shouldDisplayLocalThumbnailSeparately() ? 1 : 0);
     const { height: thumbnailHeight, width: thumbnailWidth, margin } = styles.thumbnail;
     const { height, width } = getFilmstripDimensions({
         aspectRatio,
@@ -169,6 +163,49 @@ export function isFilmstripScrollVisible(state: IReduxState) {
     }
 
     return height < (thumbnailHeight + (2 * margin)) * participantCount;
+}
+
+/**
+ * Returns the ordered participant ids used by native mobile display surfaces.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @param {boolean} includeLocalParticipant - Whether the surface displays self.
+ * @returns {string[]}
+ */
+function _getOrderedMobileDisplayParticipantIds(state: IReduxState, includeLocalParticipant: boolean): string[] {
+    const localParticipant = getLocalParticipant(state);
+    const participantIds = [
+        ...(includeLocalParticipant && localParticipant ? [ localParticipant.id ] : []),
+        ...state['features/filmstrip'].remoteParticipants
+    ];
+
+    return getParticipantIdsForMobileDisplay(state, participantIds);
+}
+
+/**
+ * Returns the ordered remote participant ids used by native mobile display surfaces.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @param {boolean} localParticipantVisible - Whether the local participant is visible on the surface.
+ * @returns {string[]}
+ */
+function _getOrderedMobileDisplayRemoteParticipantIds(state: IReduxState, localParticipantVisible: boolean): string[] {
+    return getParticipantIdsForMobileDisplay(
+        state,
+        state['features/filmstrip'].remoteParticipants,
+        {
+            includeLocalParticipant: localParticipantVisible
+        });
+}
+
+/**
+ * Returns the participant count used by native mobile display surfaces.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @returns {number}
+ */
+function _getMobileDisplayParticipantCount(state: IReduxState): number {
+    return _getOrderedMobileDisplayParticipantIds(state, !getHideSelfView(state)).length;
 }
 
 /**

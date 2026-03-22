@@ -11,7 +11,7 @@ import { PARTICIPANT_ROLE } from '../../../base/participants/constants';
 import {
     getLocalParticipant,
     getParticipantByIdOrUndefined,
-    getParticipantCount,
+    getParticipantCountForMobileDisplay,
     hasRaisedHand,
     isEveryoneModerator,
     isScreenShareParticipant
@@ -415,7 +415,7 @@ function _mapStateToProps(state: IReduxState, ownProps: any) {
     const audioTrack = getTrackByMediaTypeAndParticipant(tracks, MEDIA_TYPE.AUDIO, id);
     const videoTrack = getVideoTrackByParticipant(state, participant);
     const isScreenShare = videoTrack?.videoType === VIDEO_TYPE.DESKTOP;
-    const participantCount = getParticipantCount(state);
+    const participantCount = getParticipantCountForMobileDisplay(state);
     const renderDominantSpeakerIndicator = participant?.dominantSpeaker && participantCount > 2;
     const _isEveryoneModerator = isEveryoneModerator(state);
     const renderModeratorIndicator = tileView && !_isEveryoneModerator
