@@ -383,9 +383,7 @@ public class JitsiMeetActivity extends AppCompatActivity
 
     @Override
     protected void onUserLeaveHint() {
-        if (this.jitsiView != null) {
-            this.jitsiView.enterPictureInPicture();
-        }
+        super.onUserLeaveHint();
     }
 
     // JitsiMeetActivityInterface

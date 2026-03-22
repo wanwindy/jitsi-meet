@@ -19,7 +19,10 @@ import { MEDIA_TYPE as AV_MODERATION_MEDIA_TYPE } from '../../../av-moderation/c
 import { isEnabledFromState as isAvModerationEnabled } from '../../../av-moderation/functions';
 import { CONFERENCE_BLURRED, CONFERENCE_FOCUSED } from '../../../base/conference/actionTypes';
 import { isDisplayNameVisible } from '../../../base/config/functions.native';
-import { isLocalParticipantModerator } from '../../../base/participants/functions';
+import {
+    getRemoteParticipants,
+    isLocalParticipantModerator
+} from '../../../base/participants/functions';
 import Container from '../../../base/react/components/native/Container';
 import LoadingIndicator from '../../../base/react/components/native/LoadingIndicator';
 import Text from '../../../base/react/components/native/Text';
@@ -64,6 +67,8 @@ import LonelyMeetingExperience from './LonelyMeetingExperience';
 import TitleBar from './TitleBar';
 import { EXPANDED_LABEL_TIMEOUT } from './constants';
 import styles from './styles';
+
+const ScreenCapturePickerViewComponent = ScreenCapturePickerView as unknown as React.ComponentType<any>;
 
 /**
  * The type of the React {@code Component} props of {@link Conference}.
@@ -150,6 +155,11 @@ interface IProps extends AbstractProps {
     _reducedUI: boolean;
 
     /**
+     * Number of real remote participants currently in the meeting.
+     */
+    _remoteParticipantCount: number;
+
+    /**
      * Indicates whether the lobby screen should be visible.
      */
     _showLobby: boolean;
@@ -213,6 +223,11 @@ class Conference extends AbstractConference<IProps, State> {
     _hardwareBackPressSubscription: any;
 
     /**
+     * Whether the attendee has already handled the initial screen share authorization prompt.
+     */
+    _hasHandledInitialScreenShareAuthorization: boolean;
+
+    /**
      * Initializes a new Conference instance.
      *
      * @param {Object} props - The read-only properties with which the new
@@ -228,12 +243,14 @@ class Conference extends AbstractConference<IProps, State> {
 
         this._screenCapturePickerViewRef = null;
         this._expandedLabelTimeout = React.createRef<number>();
+        this._hasHandledInitialScreenShareAuthorization = false;
 
         // Bind event handlers so they are only bound once per instance.
-        this._authorizeScreenSharing = this._authorizeScreenSharing.bind(this);
+        this._onAuthorizeScreenSharing = this._onAuthorizeScreenSharing.bind(this);
         this._onClick = this._onClick.bind(this);
         this._renderScreenShareAuthorizationPrompt = this._renderScreenShareAuthorizationPrompt.bind(this);
         this._onHardwareBackPress = this._onHardwareBackPress.bind(this);
+        this._syncScreenShareAuthorizationPrompt = this._syncScreenShareAuthorizationPrompt.bind(this);
         this._setScreenCapturePickerViewRef = this._setScreenCapturePickerViewRef.bind(this);
         this._setToolboxVisible = this._setToolboxVisible.bind(this);
         this._createOnPress = this._createOnPress.bind(this);
@@ -261,13 +278,9 @@ class Conference extends AbstractConference<IProps, State> {
 
         if (_isLocalParticipantModerator) {
             _isDesktopModerationEnabled && dispatch(requestDisableDesktopModeration());
-        } else if (!_isScreenSharing) {
-            this.setState(
-                {
-                    showScreenShareAuthorizationPrompt: true
-                },
-                () => this._authorizeScreenSharing());
         }
+
+        this._syncScreenShareAuthorizationPrompt();
 
         if (_audioOnlyEnabled && _startCarMode) {
             navigation.navigate(screen.conference.carmode);
@@ -292,27 +305,13 @@ class Conference extends AbstractConference<IProps, State> {
         } = this.props;
 
         if (_isLocalParticipantModerator) {
-            if (this.state.showScreenShareAuthorizationPrompt) {
-                this.setState({
-                    showScreenShareAuthorizationPrompt: false
-                });
-            }
-
             if ((!prevProps._isLocalParticipantModerator && _isDesktopModerationEnabled)
                 || (!prevProps._isDesktopModerationEnabled && _isDesktopModerationEnabled)) {
                 dispatch(requestDisableDesktopModeration());
             }
-        } else if (!prevProps._isScreenSharing && _isScreenSharing && this.state.showScreenShareAuthorizationPrompt) {
-            this.setState({
-                showScreenShareAuthorizationPrompt: false
-            });
-        } else if (prevProps._isLocalParticipantModerator && !_isLocalParticipantModerator && !_isScreenSharing) {
-            this.setState(
-                {
-                    showScreenShareAuthorizationPrompt: true
-                },
-                () => this._authorizeScreenSharing());
         }
+
+        this._syncScreenShareAuthorizationPrompt(prevProps);
 
         if (!prevProps._showLobby && _showLobby) {
             navigate(screen.lobby.root);
@@ -377,28 +376,12 @@ class Conference extends AbstractConference<IProps, State> {
     }
 
     /**
-     * Handles a hardware button press for back navigation. Enters Picture-in-Picture mode
-     * (if supported) or leaves the associated {@code Conference} otherwise.
-     * Disabled when screen sharing to prevent floating window.
+     * Handles a hardware button press for back navigation by leaving the conference directly.
      *
      * @returns {boolean} Exiting the app is undesired, so {@code true} is always returned.
      */
     _onHardwareBackPress() {
-        const { _isScreenSharing, _pictureInPictureEnabled } = this.props;
-        let p;
-
-        // Disable PiP when screen sharing to avoid floating window
-        if (_pictureInPictureEnabled && !_isScreenSharing) {
-            const { PictureInPicture } = NativeModules;
-
-            p = PictureInPicture.enterPictureInPicture();
-        } else {
-            p = Promise.reject(new Error('PiP not enabled or screen sharing active'));
-        }
-
-        p.catch(() => {
-            this.props.dispatch(appNavigate(undefined));
-        });
+        this.props.dispatch(appNavigate(undefined));
 
         return true;
     }
@@ -418,17 +401,74 @@ class Conference extends AbstractConference<IProps, State> {
      *
      * @returns {void}
      */
-    _authorizeScreenSharing() {
-        if (Platform.OS === 'android') {
-            this.props.dispatch(toggleScreensharing(true));
+    _onAuthorizeScreenSharing() {
+        this._hasHandledInitialScreenShareAuthorization = true;
+
+        this.setState({
+            showScreenShareAuthorizationPrompt: false
+        }, () => {
+            if (Platform.OS === 'android') {
+                this.props.dispatch(toggleScreensharing(true));
+
+                return;
+            }
+
+            const handle = findNodeHandle(this._screenCapturePickerViewRef);
+
+            if (handle) {
+                NativeModules.ScreenCapturePickerViewManager?.show(handle);
+            }
+        });
+    }
+
+    /**
+     * Shows the attendee screen share authorization prompt only after the meeting has connected and a real host is
+     * already present. This avoids prompting the host before moderator role resolution and prevents the prompt from
+     * blocking the meeting once the attendee has already acted on it.
+     *
+     * @param {IProps} [prevProps] - Previous props, when invoked from componentDidUpdate.
+     * @returns {void}
+     */
+    _syncScreenShareAuthorizationPrompt(prevProps?: IProps) {
+        const {
+            _connecting,
+            _isLocalParticipantModerator,
+            _isScreenSharing,
+            _remoteParticipantCount,
+            _showLobby
+        } = this.props;
+
+        const shouldHidePrompt = _isLocalParticipantModerator || _isScreenSharing || _showLobby;
+
+        if (shouldHidePrompt) {
+            if (_isLocalParticipantModerator) {
+                this._hasHandledInitialScreenShareAuthorization = true;
+            }
+
+            if (this.state.showScreenShareAuthorizationPrompt) {
+                this.setState({
+                    showScreenShareAuthorizationPrompt: false
+                });
+            }
 
             return;
         }
 
-        const handle = findNodeHandle(this._screenCapturePickerViewRef);
+        const remoteParticipantCountChanged = prevProps && prevProps._remoteParticipantCount !== _remoteParticipantCount;
+        const connectingFinished = prevProps && prevProps._connecting && !_connecting;
+        const becameNonModerator = prevProps && prevProps._isLocalParticipantModerator && !_isLocalParticipantModerator;
+        const shouldPromptForAuthorization = !_connecting
+            && _remoteParticipantCount > 0
+            && !this._hasHandledInitialScreenShareAuthorization;
 
-        if (handle) {
-            NativeModules.ScreenCapturePickerViewManager?.show(handle);
+        if (shouldPromptForAuthorization
+            && (!this.state.showScreenShareAuthorizationPrompt
+                || remoteParticipantCountChanged
+                || connectingFinished
+                || becameNonModerator)) {
+            this.setState({
+                showScreenShareAuthorizationPrompt: true
+            });
         }
     }
 
@@ -581,6 +621,12 @@ class Conference extends AbstractConference<IProps, State> {
                 </SafeAreaView>
 
                 <TestConnectionInfo />
+                {
+                    Platform.OS === 'ios'
+                        && <ScreenCapturePickerViewComponent
+                            ref = { this._setScreenCapturePickerViewRef }
+                            style = { styles.hiddenScreenSharePicker as ViewStyle } />
+                }
                 { this._renderScreenShareAuthorizationPrompt() }
 
                 {
@@ -640,16 +686,10 @@ class Conference extends AbstractConference<IProps, State> {
                     <Button
                         accessibilityLabel = { 'toolbar.accessibilityLabel.shareYourScreen' }
                         labelKey = { 'toolbar.startScreenSharing' }
-                        onClick = { this._authorizeScreenSharing }
+                        onClick = { this._onAuthorizeScreenSharing }
                         style = { styles.screenSharePromptButton }
                         type = { BUTTON_TYPES.PRIMARY } />
                 </View>
-                {
-                    Platform.OS === 'ios'
-                        && <ScreenCapturePickerView
-                            ref = { this._setScreenCapturePickerViewRef }
-                            style = { styles.hiddenScreenSharePicker as ViewStyle } />
-                }
             </View>
         );
     }
@@ -734,6 +774,7 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
         _isParticipantsPaneOpen: isOpen,
         _isScreenSharing: isLocalVideoTrackDesktop(state),
         _largeVideoParticipantId: state['features/large-video'].participantId,
+        _remoteParticipantCount: getRemoteParticipants(state).size,
         _pictureInPictureEnabled: isPipEnabled(state),
         _reducedUI: reducedUI,
         _showLobby: getIsLobbyVisible(state),
