@@ -1,3 +1,5 @@
+import org.gradle.api.artifacts.ProjectDependency
+
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
@@ -129,8 +131,8 @@ android.libraryVariants.all { def variant ->
             "android/**",
             "ios/**",
             "node_modules/**/.gradle/**",
-            "node_modules/**/android/build/**",
-            "node_modules/**/ios/build/**"
+            "node_modules/**/android/**",
+            "node_modules/**/ios/**"
         ])
         outputs.dir jsBundleDir
         outputs.dir resourcesDir
@@ -209,28 +211,42 @@ android.libraryVariants.all { def variant ->
 }
 
 gradle.projectsEvaluated {
-    if (rootProject.ext.libreBuild) {
-        return
-    }
+    def projectDependencies = [] as Set<Project>
 
-    def bundleReleaseJsAndAssets = tasks.findByName('bundleReleaseJsAndAssets')
-    def amplitudeProject = rootProject.findProject(':react-native-amplitude')
+    [ 'implementation', 'api' ].each { configurationName ->
+        def configuration = configurations.findByName(configurationName)
 
-    if (bundleReleaseJsAndAssets == null || amplitudeProject == null) {
-        return
+        configuration?.dependencies?.withType(ProjectDependency)?.each { dependency ->
+            projectDependencies << dependency.dependencyProject
+        }
     }
 
     [
-        'packageReleaseResources',
-        'generateReleaseResValues',
-        'generateReleaseResources',
-        'processReleaseManifest',
-        'writeReleaseAarMetadata'
-    ].each { taskName ->
-        def amplitudeTask = amplitudeProject.tasks.findByName(taskName)
+        [ bundleTaskName: 'bundleDebugJsAndAssets', variantName: 'Debug' ],
+        [ bundleTaskName: 'bundleReleaseJsAndAssets', variantName: 'Release' ]
+    ].each { bundleConfig ->
+        def bundleTask = tasks.findByName(bundleConfig.bundleTaskName)
 
-        if (amplitudeTask != null) {
-            bundleReleaseJsAndAssets.dependsOn(amplitudeTask)
+        if (bundleTask == null) {
+            return
+        }
+
+        def releaseTaskNames = [
+            "package${bundleConfig.variantName}Resources",
+            "generate${bundleConfig.variantName}ResValues",
+            "generate${bundleConfig.variantName}Resources",
+            "process${bundleConfig.variantName}Manifest",
+            "write${bundleConfig.variantName}AarMetadata"
+        ]
+
+        projectDependencies.each { dependencyProject ->
+            releaseTaskNames.each { taskName ->
+                def dependencyTask = dependencyProject.tasks.findByName(taskName)
+
+                if (dependencyTask != null) {
+                    bundleTask.dependsOn(dependencyTask)
+                }
+            }
         }
     }
 }
