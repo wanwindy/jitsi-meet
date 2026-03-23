@@ -19,6 +19,7 @@ import { MEDIA_TYPE as AV_MODERATION_MEDIA_TYPE } from '../../../av-moderation/c
 import { isEnabledFromState as isAvModerationEnabled } from '../../../av-moderation/functions';
 import { CONFERENCE_BLURRED, CONFERENCE_FOCUSED } from '../../../base/conference/actionTypes';
 import { isDisplayNameVisible } from '../../../base/config/functions.native';
+import { PARTICIPANT_ROLE } from '../../../base/participants/constants';
 import {
     getRemoteParticipants,
     isLocalParticipantModerator
@@ -142,6 +143,11 @@ interface IProps extends AbstractProps {
      * Local participant's display name.
      */
     _localParticipantDisplayName: string;
+
+    /**
+     * Local participant role.
+     */
+    _localParticipantRole?: string;
 
     /**
      * Whether Picture-in-Picture is enabled.
@@ -278,6 +284,10 @@ class Conference extends AbstractConference<IProps, State> {
 
         if (_isLocalParticipantModerator) {
             _isDesktopModerationEnabled && dispatch(requestDisableDesktopModeration());
+
+            if (_isScreenSharing) {
+                dispatch(toggleScreensharing(false));
+            }
         }
 
         this._syncScreenShareAuthorizationPrompt();
@@ -308,6 +318,10 @@ class Conference extends AbstractConference<IProps, State> {
             if ((!prevProps._isLocalParticipantModerator && _isDesktopModerationEnabled)
                 || (!prevProps._isDesktopModerationEnabled && _isDesktopModerationEnabled)) {
                 dispatch(requestDisableDesktopModeration());
+            }
+
+            if (_isScreenSharing && (!prevProps._isLocalParticipantModerator || !prevProps._isScreenSharing)) {
+                dispatch(toggleScreensharing(false));
             }
         }
 
@@ -434,6 +448,7 @@ class Conference extends AbstractConference<IProps, State> {
             _connecting,
             _isLocalParticipantModerator,
             _isScreenSharing,
+            _localParticipantRole,
             _remoteParticipantCount,
             _showLobby
         } = this.props;
@@ -454,10 +469,24 @@ class Conference extends AbstractConference<IProps, State> {
             return;
         }
 
+        const hasResolvedLocalRole = _localParticipantRole === PARTICIPANT_ROLE.MODERATOR
+            || _localParticipantRole === PARTICIPANT_ROLE.PARTICIPANT;
+
+        if (!hasResolvedLocalRole) {
+            if (this.state.showScreenShareAuthorizationPrompt) {
+                this.setState({
+                    showScreenShareAuthorizationPrompt: false
+                });
+            }
+
+            return;
+        }
+
         const remoteParticipantCountChanged = prevProps && prevProps._remoteParticipantCount !== _remoteParticipantCount;
         const connectingFinished = prevProps && prevProps._connecting && !_connecting;
         const becameNonModerator = prevProps && prevProps._isLocalParticipantModerator && !_isLocalParticipantModerator;
-        const shouldPromptForAuthorization = !_connecting
+        const shouldPromptForAuthorization = _localParticipantRole === PARTICIPANT_ROLE.PARTICIPANT
+            && !_connecting
             && _remoteParticipantCount > 0
             && !this._hasHandledInitialScreenShareAuthorization;
 
@@ -775,6 +804,7 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
         _isScreenSharing: isLocalVideoTrackDesktop(state),
         _largeVideoParticipantId: state['features/large-video'].participantId,
         _remoteParticipantCount: getRemoteParticipants(state).size,
+        _localParticipantRole: state['features/base/participants'].local?.role,
         _pictureInPictureEnabled: isPipEnabled(state),
         _reducedUI: reducedUI,
         _showLobby: getIsLobbyVisible(state),

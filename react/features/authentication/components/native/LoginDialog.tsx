@@ -10,6 +10,10 @@ import { _abstractMapStateToProps } from '../../../base/dialog/functions';
 import { translate } from '../../../base/i18n/functions';
 import { JitsiConnectionErrors } from '../../../base/lib-jitsi-meet';
 import { authenticateAndUpgradeRole, cancelLogin } from '../../actions.native';
+import {
+    getStoredLoginCredentials,
+    persistStoredLoginCredentials
+} from '../../functions.native';
 
 /**
  * The type of the React {@link Component} props of {@link LoginDialog}.
@@ -105,6 +109,8 @@ interface IState {
  * of the configuration parameters.
  */
 class LoginDialog extends Component<IProps, IState> {
+    _mounted: boolean;
+
     /**
      * Initializes a new LoginDialog instance.
      *
@@ -118,12 +124,30 @@ class LoginDialog extends Component<IProps, IState> {
             username: '',
             password: ''
         };
+        this._mounted = false;
 
         // Bind event handlers so they are only bound once per instance.
         this._onCancel = this._onCancel.bind(this);
         this._onLogin = this._onLogin.bind(this);
         this._onPasswordChange = this._onPasswordChange.bind(this);
         this._onUsernameChange = this._onUsernameChange.bind(this);
+    }
+
+    override componentDidMount() {
+        this._mounted = true;
+
+        void getStoredLoginCredentials().then(credentials => {
+            if (credentials && this._mounted) {
+                this.setState({
+                    password: credentials.password,
+                    username: credentials.username
+                });
+            }
+        });
+    }
+
+    override componentWillUnmount() {
+        this._mounted = false;
     }
 
     /**
@@ -271,6 +295,8 @@ class LoginDialog extends Component<IProps, IState> {
         const { password, username } = this.state;
         const jid = toJid(username, this.props._configHosts ?? {});
         let r;
+
+        void persistStoredLoginCredentials(username, password);
 
         // If there's a conference it means that the connection has succeeded,
         // but authentication is required in order to join the room.

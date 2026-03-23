@@ -5,6 +5,8 @@ import {
     CONFERENCE_LEFT
 } from '../base/conference/actionTypes';
 import { CONNECTION_ESTABLISHED, CONNECTION_FAILED } from '../base/connection/actionTypes';
+import { connect as connectAction } from '../base/connection/actions';
+import { toJid } from '../base/connection/functions';
 import { hideDialog } from '../base/dialog/actions';
 import { isDialogOpen } from '../base/dialog/functions';
 import {
@@ -26,6 +28,7 @@ import {
     WAIT_FOR_OWNER
 } from './actionTypes';
 import {
+    authenticateAndUpgradeRole,
     disableModeratorLogin,
     enableModeratorLogin,
     hideLoginDialog,
@@ -37,8 +40,15 @@ import {
     waitForOwner
 } from './actions';
 import { LoginDialog, WaitForOwnerDialog } from './components';
-import { getTokenAuthUrl, isTokenAuthEnabled } from './functions';
+import {
+    clearStoredLoginCredentials,
+    getStoredLoginCredentials,
+    getTokenAuthUrl,
+    isTokenAuthEnabled
+} from './functions';
 import logger from './logger';
+
+let autoLoginAttempted = false;
 
 
 /**
@@ -125,6 +135,8 @@ MiddlewareRegistry.register(store => next => action => {
     case CONFERENCE_JOINED: {
         const { dispatch } = store;
 
+        autoLoginAttempted = false;
+
         if (_isWaitingForModerator(store)) {
             dispatch(disableModeratorLogin());
         }
@@ -136,11 +148,13 @@ MiddlewareRegistry.register(store => next => action => {
     }
 
     case CONFERENCE_LEFT:
+        autoLoginAttempted = false;
         store.dispatch(disableModeratorLogin());
         store.dispatch(stopWaitForOwner());
         break;
 
     case CONNECTION_ESTABLISHED:
+        autoLoginAttempted = false;
         store.dispatch(hideLoginDialog());
         break;
 
@@ -169,6 +183,8 @@ MiddlewareRegistry.register(store => next => action => {
     }
 
     case LOGOUT: {
+        autoLoginAttempted = false;
+        void clearStoredLoginCredentials();
         _handleLogout(store);
 
         break;
@@ -183,7 +199,10 @@ MiddlewareRegistry.register(store => next => action => {
         const { error, progress } = action;
 
         if (!error && progress === 1) {
+            autoLoginAttempted = false;
             store.dispatch(hideLoginDialog());
+        } else if (error && autoLoginAttempted && !isDialogOpen(store, LoginDialog)) {
+            store.dispatch(openLoginDialog());
         }
         break;
     }
@@ -249,6 +268,8 @@ function _isWaitingForModerator({ getState }: IStore) {
 function _handleLogin({ dispatch, getState }: IStore) {
     const state = getState();
     const config = state['features/base/config'];
+    const conference = state['features/base/conference'].authRequired || state['features/base/conference'].conference;
+    const configHosts = state['features/base/config'].hosts;
     const room = state['features/base/conference'].room;
     const { locationURL = { href: '' } as URL } = state['features/base/connection'];
     const { tenant } = parseURIString(locationURL.href) || {};
@@ -264,7 +285,34 @@ function _handleLogin({ dispatch, getState }: IStore) {
     }
 
     if (!isTokenAuthEnabled(state)) {
-        dispatch(openLoginDialog());
+        if (autoLoginAttempted) {
+            dispatch(openLoginDialog());
+
+            return;
+        }
+
+        void getStoredLoginCredentials()
+            .then(credentials => {
+                if (!credentials) {
+                    dispatch(openLoginDialog());
+
+                    return;
+                }
+
+                autoLoginAttempted = true;
+
+                const jid = toJid(credentials.username, configHosts ?? {});
+
+                if (conference) {
+                    dispatch(authenticateAndUpgradeRole(jid, credentials.password, conference));
+                } else {
+                    dispatch(connectAction(jid, credentials.password));
+                }
+            })
+            .catch(error => {
+                logger.warn('Failed to restore saved login credentials', error);
+                dispatch(openLoginDialog());
+            });
 
         return;
     }

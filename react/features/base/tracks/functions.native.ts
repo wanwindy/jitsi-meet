@@ -1,7 +1,8 @@
 import { IStore } from '../../app/types';
 import JitsiMeetJS from '../lib-jitsi-meet';
+import { MEDIA_TYPE } from '../media/constants';
 
-import { getCameraFacingMode } from './functions.any';
+import { getCameraFacingMode, getLocalJitsiAudioTrackSettings } from './functions.any';
 import { ITrackOptions } from './types';
 
 export * from './functions.any';
@@ -29,11 +30,25 @@ export function createLocalTracksF(options: ITrackOptions = {}, store: IStore) {
         resolution
     } = state['features/base/config'];
     const constraints = options.constraints ?? state['features/base/config'].constraints;
+    const shouldConfigureAudio = Boolean(options.devices?.includes(MEDIA_TYPE.AUDIO));
+    const audioConstraints = shouldConfigureAudio
+        ? {
+            ...getLocalJitsiAudioTrackSettings(state),
+            ...(state['features/base/settings'].audioSettings ?? {}),
+            ...(constraints?.audio ?? {})
+        }
+        : constraints?.audio;
+    const mergedConstraints = shouldConfigureAudio
+        ? {
+            ...constraints,
+            audio: audioConstraints
+        }
+        : constraints;
 
     return JitsiMeetJS.createLocalTracks(
         {
             cameraDeviceId,
-            constraints,
+            constraints: mergedConstraints,
 
             // Copy array to avoid mutations inside library.
             devices: options.devices?.slice(0),

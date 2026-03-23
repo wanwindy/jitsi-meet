@@ -1,10 +1,61 @@
 import { Platform } from 'react-native';
+import DefaultPreference from 'react-native-default-preference';
 
 import { IConfig } from '../base/config/configType';
 
-import { _getTokenAuthState } from './functions.any';
+import { IStoredLoginCredentials, _getTokenAuthState } from './functions.any';
 
 export * from './functions.any';
+
+const AUTH_PREFERENCES_NAME = 'jitsi-auth-preferences';
+const AUTH_PASSWORD_KEY = 'savedAuthPassword';
+const AUTH_USERNAME_KEY = 'savedAuthUsername';
+
+async function _prepareAuthPreferences() {
+    await DefaultPreference.setName(AUTH_PREFERENCES_NAME);
+}
+
+export async function clearStoredLoginCredentials() {
+    await _prepareAuthPreferences();
+    await DefaultPreference.clearMultiple([
+        AUTH_USERNAME_KEY,
+        AUTH_PASSWORD_KEY
+    ]);
+}
+
+export async function getStoredLoginCredentials(): Promise<IStoredLoginCredentials | undefined> {
+    await _prepareAuthPreferences();
+
+    const [ username, password ] = await DefaultPreference.getMultiple([
+        AUTH_USERNAME_KEY,
+        AUTH_PASSWORD_KEY
+    ]);
+
+    if (!username || !password) {
+        return undefined;
+    }
+
+    return {
+        password,
+        username
+    };
+}
+
+export async function persistStoredLoginCredentials(username: string, password: string) {
+    const trimmedUsername = username.trim();
+
+    if (!trimmedUsername || !password) {
+        await clearStoredLoginCredentials();
+
+        return;
+    }
+
+    await _prepareAuthPreferences();
+    await DefaultPreference.setMultiple({
+        [AUTH_PASSWORD_KEY]: password,
+        [AUTH_USERNAME_KEY]: trimmedUsername
+    });
+}
 
 /**
  * Creates the URL pointing to JWT token authentication service. It is

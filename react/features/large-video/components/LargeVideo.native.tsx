@@ -3,6 +3,7 @@ import { connect } from 'react-redux';
 
 import { IReduxState, IStore } from '../../app/types';
 import { JitsiTrackEvents } from '../../base/lib-jitsi-meet';
+import { VIDEO_TYPE } from '../../base/media/constants';
 import ParticipantView from '../../base/participants/components/ParticipantView.native';
 import { getParticipantById, isLocalScreenshareParticipant } from '../../base/participants/functions';
 import { trackStreamingStatusChanged } from '../../base/tracks/actions.native';
@@ -42,6 +43,11 @@ interface IProps {
      * Application's viewport height.
      */
     _width: number;
+
+    /**
+     * Indicates whether pinch-to-zoom and dragging are enabled.
+     */
+    _zoomEnabled: boolean;
 
     /**
      * Invoked to trigger state changes in Redux.
@@ -229,7 +235,7 @@ class LargeVideo extends PureComponent<IProps, IState> {
                 testHintId = 'org.jitsi.meet.LargeVideo'
                 useConnectivityInfoLabel = { useConnectivityInfoLabel }
                 zOrder = { 0 }
-                zoomEnabled = { true } />
+                zoomEnabled = { this.props._zoomEnabled } />
         );
     }
 }
@@ -265,7 +271,8 @@ function _mapStateToProps(state: IReduxState) {
         _height: height,
         _participantId: participantId ?? '',
         _videoTrack: videoTrack,
-        _width: width
+        _width: width,
+        _zoomEnabled: videoTrack?.videoType !== VIDEO_TYPE.DESKTOP
     };
 }
 

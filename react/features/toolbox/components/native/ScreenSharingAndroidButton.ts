@@ -5,7 +5,7 @@ import { ANDROID_SCREENSHARING_ENABLED } from '../../../base/flags/constants';
 import { getFeatureFlag } from '../../../base/flags/functions';
 import { translate } from '../../../base/i18n/functions';
 import { IconScreenshare } from '../../../base/icons/svg';
-import { isLocalParticipantModerator } from '../../../base/participants/functions';
+import { PARTICIPANT_ROLE } from '../../../base/participants/constants';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
 import { toggleScreensharing } from '../../../base/tracks/actions.native';
 import { isLocalVideoTrackDesktop } from '../../../base/tracks/functions.native';
@@ -82,11 +82,11 @@ class ScreenSharingAndroidButton extends AbstractButton<IProps> {
  */
 function _mapStateToProps(state: IReduxState) {
     const enabled = getFeatureFlag(state, ANDROID_SCREENSHARING_ENABLED, true);
-    const isModerator = isLocalParticipantModerator(state);
+    const localRole = state['features/base/participants'].local?.role;
 
     return {
         _screensharing: isLocalVideoTrackDesktop(state),
-        visible: enabled && !isModerator
+        visible: enabled && localRole === PARTICIPANT_ROLE.PARTICIPANT
     };
 }
 

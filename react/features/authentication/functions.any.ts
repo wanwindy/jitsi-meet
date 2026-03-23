@@ -4,6 +4,11 @@ import { parseURLParams } from '../base/util/parseURLParams';
 import { getBackendSafeRoomName } from '../base/util/uri';
 import { isVpaasMeeting } from '../jaas/functions';
 
+export interface IStoredLoginCredentials {
+    password: string;
+    username: string;
+}
+
 /**
  * Checks if the token for authentication URL is available and the meeting is not jaas.
  *
@@ -25,6 +30,18 @@ export const isTokenAuthEnabled = (state: IReduxState): boolean => {
  */
 export const isTokenAuthInline = (config: IConfig): boolean =>
     config.tokenAuthInline === true;
+
+export function clearStoredLoginCredentials(): Promise<void> {
+    return Promise.resolve();
+}
+
+export function getStoredLoginCredentials(): Promise<IStoredLoginCredentials | undefined> {
+    return Promise.resolve(undefined);
+}
+
+export function persistStoredLoginCredentials(_username: string, _password: string): Promise<void> {
+    return Promise.resolve();
+}
 
 /**
  * Returns the state that we can add as a parameter to the tokenAuthUrl.
