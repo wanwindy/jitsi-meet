@@ -41,7 +41,20 @@ export function toggleScreensharing(enabled: boolean, _ignore1?: boolean, _ignor
  */
 async function _startScreenSharing(dispatch: IStore['dispatch'], state: IReduxState) {
     try {
-        const tracks: any[] = await JitsiMeetJS.createLocalTracks({ devices: [ 'desktop' ] });
+        const { conference } = state['features/base/conference'];
+        const desktopSharingFrameRate = state['features/base/config'].desktopSharingFrameRate ?? {
+            max: 15,
+            min: 10
+        };
+
+        if (typeof desktopSharingFrameRate.max === 'number') {
+            conference?.setDesktopSharingFrameRate(desktopSharingFrameRate.max);
+        }
+
+        const tracks: any[] = await JitsiMeetJS.createLocalTracks({
+            desktopSharingFrameRate,
+            devices: [ 'desktop' ]
+        });
         const track = tracks[0];
         const currentLocalDesktopTrack = getLocalDesktopTrack(getTrackState(state));
         const currentJitsiTrack = currentLocalDesktopTrack?.jitsiTrack;

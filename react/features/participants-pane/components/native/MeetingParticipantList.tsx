@@ -8,8 +8,10 @@ import Icon from '../../../base/icons/components/Icon';
 import { IconAddUser } from '../../../base/icons/svg';
 import {
     addPeopleFeatureControl,
+    getLocalParticipant,
     getParticipantById,
     getParticipantIdsForMobileDisplay,
+    getRemoteParticipants,
     isScreenShareParticipant,
     setShareDialogVisiblity
 } from '../../../base/participants/functions';
@@ -23,7 +25,7 @@ import {
 import { doInvitePeople } from '../../../invite/actions.native';
 import { getInviteOthersControl } from '../../../share-room/functions';
 import { iAmVisitor } from '../../../visitors/functions';
-import { getSortedParticipantIds, shouldRenderInviteButton } from '../../functions';
+import { shouldRenderInviteButton } from '../../functions';
 
 import MeetingParticipantItem from './MeetingParticipantItem';
 import styles from './styles';
@@ -136,9 +138,18 @@ const MeetingParticipantList = ({
  * @returns {IProps}
  */
 function _mapStateToProps(state: IReduxState) {
-    let sortedParticipantIds: any = getSortedParticipantIds(state);
-
     const _iAmVisitor = iAmVisitor(state);
+    const localParticipant = getLocalParticipant(state);
+    const remoteParticipants = getRemoteParticipants(state);
+    const orderedRemoteParticipantIds = state['features/filmstrip'].remoteParticipants
+        .filter(id => remoteParticipants.has(id));
+    const missingRemoteParticipantIds = Array.from(remoteParticipants.keys())
+        .filter(id => !orderedRemoteParticipantIds.includes(id));
+    let sortedParticipantIds: any = [
+        ...(!_iAmVisitor && localParticipant ? [ localParticipant.id ] : []),
+        ...orderedRemoteParticipantIds,
+        ...missingRemoteParticipantIds
+    ];
 
     sortedParticipantIds = sortedParticipantIds.filter((id: any) => {
         const participant = getParticipantById(state, id);

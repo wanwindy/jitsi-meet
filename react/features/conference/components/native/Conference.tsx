@@ -857,7 +857,7 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
     const { startCarMode } = state['features/base/settings'];
     const { enabled: audioOnlyEnabled } = state['features/base/audio-only'];
     const remoteParticipants = Array.from(getRemoteParticipants(state).values())
-        .filter(participant => !participant.isReplacing && !participant.isReplaced);
+        .filter(participant => !participant.isReplaced);
     const hasRemoteModerator = remoteParticipants.some(participant => participant.role === PARTICIPANT_ROLE.MODERATOR);
     const brandingStyles = backgroundColor ? {
         background: backgroundColor
