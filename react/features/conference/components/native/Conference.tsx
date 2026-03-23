@@ -110,6 +110,11 @@ interface IProps extends AbstractProps {
     _filmstripVisible: boolean;
 
     /**
+     * Whether a real remote moderator is already present in the meeting.
+     */
+    _hasRemoteModerator: boolean;
+
+    /**
      * Whether desktop moderation is enabled.
      */
     _isDesktopModerationEnabled: boolean;
@@ -199,6 +204,16 @@ interface IProps extends AbstractProps {
 type State = {
 
     /**
+     * Error shown when Android attendee screenshare authorization fails.
+     */
+    screenShareAuthorizationError?: string;
+
+    /**
+     * Whether Android attendee screenshare startup is currently in progress.
+     */
+    screenShareAuthorizationInProgress: boolean;
+
+    /**
      * Whether screen share authorization prompt is visible.
      */
     showScreenShareAuthorizationPrompt: boolean;
@@ -243,6 +258,8 @@ class Conference extends AbstractConference<IProps, State> {
         super(props);
 
         this.state = {
+            screenShareAuthorizationError: undefined,
+            screenShareAuthorizationInProgress: false,
             showScreenShareAuthorizationPrompt: false,
             visibleExpandedLabel: undefined
         };
@@ -415,18 +432,38 @@ class Conference extends AbstractConference<IProps, State> {
      *
      * @returns {void}
      */
-    _onAuthorizeScreenSharing() {
+    async _onAuthorizeScreenSharing() {
+        if (this.state.screenShareAuthorizationInProgress) {
+            return;
+        }
+
+        if (Platform.OS === 'android') {
+            this.setState({
+                screenShareAuthorizationError: undefined,
+                screenShareAuthorizationInProgress: true,
+                showScreenShareAuthorizationPrompt: true
+            });
+
+            try {
+                await this.props.dispatch(toggleScreensharing(true));
+            } catch (error) {
+                this.setState({
+                    screenShareAuthorizationError: '\u5c4f\u5e55\u5171\u4eab\u6388\u6743\u672a\u5b8c\u6210\uff0c\u8bf7\u91cd\u8bd5\u3002',
+                    screenShareAuthorizationInProgress: false,
+                    showScreenShareAuthorizationPrompt: true
+                });
+            }
+
+            return;
+        }
+
         this._hasHandledInitialScreenShareAuthorization = true;
 
         this.setState({
+            screenShareAuthorizationError: undefined,
+            screenShareAuthorizationInProgress: false,
             showScreenShareAuthorizationPrompt: false
         }, () => {
-            if (Platform.OS === 'android') {
-                this.props.dispatch(toggleScreensharing(true));
-
-                return;
-            }
-
             const handle = findNodeHandle(this._screenCapturePickerViewRef);
 
             if (handle) {
@@ -446,6 +483,7 @@ class Conference extends AbstractConference<IProps, State> {
     _syncScreenShareAuthorizationPrompt(prevProps?: IProps) {
         const {
             _connecting,
+            _hasRemoteModerator,
             _isLocalParticipantModerator,
             _isScreenSharing,
             _localParticipantRole,
@@ -456,12 +494,16 @@ class Conference extends AbstractConference<IProps, State> {
         const shouldHidePrompt = _isLocalParticipantModerator || _isScreenSharing || _showLobby;
 
         if (shouldHidePrompt) {
-            if (_isLocalParticipantModerator) {
+            if (_isLocalParticipantModerator || _isScreenSharing) {
                 this._hasHandledInitialScreenShareAuthorization = true;
             }
 
-            if (this.state.showScreenShareAuthorizationPrompt) {
+            if (this.state.showScreenShareAuthorizationPrompt
+                || this.state.screenShareAuthorizationError
+                || this.state.screenShareAuthorizationInProgress) {
                 this.setState({
+                    screenShareAuthorizationError: undefined,
+                    screenShareAuthorizationInProgress: false,
                     showScreenShareAuthorizationPrompt: false
                 });
             }
@@ -473,8 +515,12 @@ class Conference extends AbstractConference<IProps, State> {
             || _localParticipantRole === PARTICIPANT_ROLE.PARTICIPANT;
 
         if (!hasResolvedLocalRole) {
-            if (this.state.showScreenShareAuthorizationPrompt) {
+            if (this.state.showScreenShareAuthorizationPrompt
+                || this.state.screenShareAuthorizationError
+                || this.state.screenShareAuthorizationInProgress) {
                 this.setState({
+                    screenShareAuthorizationError: undefined,
+                    screenShareAuthorizationInProgress: false,
                     showScreenShareAuthorizationPrompt: false
                 });
             }
@@ -482,21 +528,30 @@ class Conference extends AbstractConference<IProps, State> {
             return;
         }
 
+        const hasHostPresent = _hasRemoteModerator || _remoteParticipantCount > 0;
         const remoteParticipantCountChanged = prevProps && prevProps._remoteParticipantCount !== _remoteParticipantCount;
+        const remoteModeratorChanged = prevProps && prevProps._hasRemoteModerator !== _hasRemoteModerator;
         const connectingFinished = prevProps && prevProps._connecting && !_connecting;
         const becameNonModerator = prevProps && prevProps._isLocalParticipantModerator && !_isLocalParticipantModerator;
         const shouldPromptForAuthorization = _localParticipantRole === PARTICIPANT_ROLE.PARTICIPANT
             && !_connecting
-            && _remoteParticipantCount > 0
+            && hasHostPresent
             && !this._hasHandledInitialScreenShareAuthorization;
 
         if (shouldPromptForAuthorization
             && (!this.state.showScreenShareAuthorizationPrompt
                 || remoteParticipantCountChanged
+                || remoteModeratorChanged
                 || connectingFinished
                 || becameNonModerator)) {
             this.setState({
                 showScreenShareAuthorizationPrompt: true
+            });
+        } else if (!shouldPromptForAuthorization && this.state.showScreenShareAuthorizationPrompt) {
+            this.setState({
+                screenShareAuthorizationError: undefined,
+                screenShareAuthorizationInProgress: false,
+                showScreenShareAuthorizationPrompt: false
             });
         }
     }
@@ -703,6 +758,14 @@ class Conference extends AbstractConference<IProps, State> {
             return null;
         }
 
+        const {
+            screenShareAuthorizationError,
+            screenShareAuthorizationInProgress
+        } = this.state;
+        const description = screenShareAuthorizationInProgress
+            ? '\u6b63\u5728\u7b49\u5f85\u7cfb\u7edf\u5b8c\u6210\u5c4f\u5e55\u5171\u4eab\u6388\u6743\uff0c\u8bf7\u5728\u7cfb\u7edf\u5f39\u7a97\u4e2d\u786e\u8ba4\u3002'
+            : '\u6388\u6743\u540e\u65b9\u53ef\u7ee7\u7eed\u8fdb\u5165\u4f1a\u8bae\u3002';
+
         return (
             <View style = { styles.screenSharePromptOverlay as ViewStyle }>
                 <View style = { styles.screenSharePromptCard as ViewStyle }>
@@ -710,10 +773,18 @@ class Conference extends AbstractConference<IProps, State> {
                         { '\u8fdb\u5165\u4f1a\u8bae\u524d\u8bf7\u6388\u6743\u5171\u4eab\u5c4f\u5e55' }
                     </Text>
                     <Text style = { styles.screenSharePromptDescription }>
-                        { '\u6388\u6743\u540e\u65b9\u53ef\u7ee7\u7eed\u8fdb\u5165\u4f1a\u8bae\u3002' }
+                        { description }
                     </Text>
+                    {
+                        screenShareAuthorizationError
+                            ? <Text style = { styles.screenSharePromptDescription }>
+                                { screenShareAuthorizationError }
+                            </Text>
+                            : null
+                    }
                     <Button
                         accessibilityLabel = { 'toolbar.accessibilityLabel.shareYourScreen' }
+                        disabled = { screenShareAuthorizationInProgress }
                         labelKey = { 'toolbar.startScreenSharing' }
                         onClick = { this._onAuthorizeScreenSharing }
                         style = { styles.screenSharePromptButton }
@@ -785,6 +856,9 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
     const { backgroundColor } = state['features/dynamic-branding'];
     const { startCarMode } = state['features/base/settings'];
     const { enabled: audioOnlyEnabled } = state['features/base/audio-only'];
+    const remoteParticipants = Array.from(getRemoteParticipants(state).values())
+        .filter(participant => !participant.isReplacing && !participant.isReplaced);
+    const hasRemoteModerator = remoteParticipants.some(participant => participant.role === PARTICIPANT_ROLE.MODERATOR);
     const brandingStyles = backgroundColor ? {
         background: backgroundColor
     } : undefined;
@@ -797,13 +871,14 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
         _calendarEnabled: isCalendarEnabled(state),
         _connecting: isConnecting(state),
         _filmstripVisible: isFilmstripVisible(state),
+        _hasRemoteModerator: hasRemoteModerator,
         _isDesktopModerationEnabled: isAvModerationEnabled(AV_MODERATION_MEDIA_TYPE.DESKTOP, state),
         _isDisplayNameVisible: isDisplayNameVisible(state),
         _isLocalParticipantModerator: isLocalParticipantModerator(state),
         _isParticipantsPaneOpen: isOpen,
         _isScreenSharing: isLocalVideoTrackDesktop(state),
         _largeVideoParticipantId: state['features/large-video'].participantId,
-        _remoteParticipantCount: getRemoteParticipants(state).size,
+        _remoteParticipantCount: remoteParticipants.length,
         _localParticipantRole: state['features/base/participants'].local?.role,
         _pictureInPictureEnabled: isPipEnabled(state),
         _reducedUI: reducedUI,

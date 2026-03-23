@@ -24,9 +24,9 @@ export function _cleanupConfig(_config: IConfig) {
  * Returns the replaceParticipant config.
  *
  * @param {Object} state - The state of the app.
- * @returns {boolean}
+ * @returns {boolean | undefined}
  */
-export function getReplaceParticipant(state: IReduxState): string | undefined {
+export function getReplaceParticipant(state: IReduxState): boolean | undefined {
     return state['features/base/config'].replaceParticipant;
 }
 

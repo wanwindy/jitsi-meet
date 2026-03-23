@@ -568,7 +568,7 @@ export interface IConfig {
         disablePrivateChat?: 'all' | 'allow-moderator-chat' | 'disable-visitor-chat';
         disabled?: boolean;
     };
-    replaceParticipant?: string;
+    replaceParticipant?: boolean;
     requireDisplayName?: boolean;
     resolution?: number;
     roomPasswordNumberOfDigits?: number;

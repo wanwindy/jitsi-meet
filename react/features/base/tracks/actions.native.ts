@@ -24,9 +24,9 @@ export function toggleScreensharing(enabled: boolean, _ignore1?: boolean, _ignor
         const state = getState();
 
         if (enabled) {
-            _startScreenSharing(dispatch, state);
+            return _startScreenSharing(dispatch, state);
         } else {
-            dispatch(setScreenshareMuted(true));
+            return dispatch(setScreenshareMuted(true));
         }
     };
 }
@@ -37,7 +37,7 @@ export function toggleScreensharing(enabled: boolean, _ignore1?: boolean, _ignor
  * @private
  * @param {Dispatch} dispatch - The redux {@code dispatch} function.
  * @param {Object} state - The redux state.
- * @returns {void}
+ * @returns {Promise<void>}
  */
 async function _startScreenSharing(dispatch: IStore['dispatch'], state: IReduxState) {
     try {
@@ -49,9 +49,9 @@ async function _startScreenSharing(dispatch: IStore['dispatch'], state: IReduxSt
         // The first time the user shares the screen we add the track and create the transceiver.
         // Afterwards, we just replace the old track, so the transceiver will be reused.
         if (currentJitsiTrack) {
-            dispatch(replaceLocalTrack(currentJitsiTrack, track));
+            await dispatch(replaceLocalTrack(currentJitsiTrack, track));
         } else {
-            dispatch(addLocalTrack(track));
+            await dispatch(addLocalTrack(track));
         }
 
         const { enabled: audioOnly } = state['features/base/audio-only'];
@@ -65,5 +65,6 @@ async function _startScreenSharing(dispatch: IStore['dispatch'], state: IReduxSt
         }
     } catch (error: any) {
         logger.error('Error creating screen-sharing stream', error);
+        throw error;
     }
 }

@@ -23,7 +23,13 @@ export * from './actions.any';
 export function connect(id?: string, password?: string) {
     return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
         const state = getState();
+        const { connection, connecting } = state['features/base/connection'];
         const { jwt } = state['features/base/jwt'];
+        const activeConnection = connection || connecting;
+
+        if (!id && !password && activeConnection) {
+            return Promise.resolve(activeConnection);
+        }
 
         if (isVpaasMeeting(state)) {
             return dispatch(getCustomerDetails())
@@ -41,7 +47,7 @@ export function connect(id?: string, password?: string) {
                 });
         }
 
-        dispatch(_connectInternal(id, password))
+        return dispatch(_connectInternal(id, password))
 
         .catch(error => {
             if (error === JitsiConnectionErrors.NOT_LIVE_ERROR) {

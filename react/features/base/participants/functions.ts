@@ -600,7 +600,7 @@ export function getParticipantIdsForMobileDisplay(
     candidateIds.forEach((participantId, index) => {
         const participant = getParticipantById(state, participantId);
 
-        if (!participant || participant.isReplaced) {
+        if (!participant || participant.isReplaced || participant.isReplacing) {
             return;
         }
 

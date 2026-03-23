@@ -1,8 +1,6 @@
 import { NativeModules } from 'react-native';
 
 import { IReduxState } from '../../app/types';
-import { REPLACE_PARTICIPANT } from '../flags/constants';
-import { getFeatureFlag } from '../flags/functions';
 
 import { IConfig, IDeeplinkingConfig } from './configType';
 
@@ -35,10 +33,16 @@ export function _cleanupConfig(config: IConfig) {
  * Returns the replaceParticipant config.
  *
  * @param {Object} state - The state of the app.
- * @returns {boolean}
+ * @returns {boolean | undefined}
  */
-export function getReplaceParticipant(state: IReduxState): string {
-    return getFeatureFlag(state, REPLACE_PARTICIPANT, false);
+export function getReplaceParticipant(state: IReduxState): boolean | undefined {
+    const { hosts, replaceParticipant } = state['features/base/config'];
+
+    if (typeof replaceParticipant === 'boolean') {
+        return replaceParticipant;
+    }
+
+    return hosts?.anonymousdomain ? true : undefined;
 }
 
 /**

@@ -477,6 +477,37 @@ StateListenerRegistry.register(
     });
 
 /**
+ * Keeps the local participant's JWT identity synchronized with role upgrades
+ * so native mobile display dedupe can match replacement sessions by account.
+ */
+StateListenerRegistry.register(
+    /* selector */ state => state['features/base/jwt']?.user,
+    /* listener */ (jwtUser, { dispatch, getState }) => {
+        const localParticipant = getLocalParticipant(getState());
+        const nextUserContext = jwtUser ? {
+            id: jwtUser.id,
+            name: jwtUser.name
+        } : undefined;
+
+        if (!localParticipant) {
+            return;
+        }
+
+        if (localParticipant.jwtId === jwtUser?.id
+            && localParticipant.userContext?.id === nextUserContext?.id
+            && localParticipant.userContext?.name === nextUserContext?.name) {
+            return;
+        }
+
+        dispatch(participantUpdated({
+            id: localParticipant.id,
+            jwtId: jwtUser?.id,
+            local: true,
+            userContext: nextUserContext
+        }));
+    });
+
+/**
  * Registers listeners for participant change events.
  */
 StateListenerRegistry.register(
@@ -629,6 +660,7 @@ function _localParticipantJoined({ getState, dispatch }: IStore, next: Function,
         email: settings.email,
         name: settings.displayName,
         id: '',
+        jwtId: jwtUser?.id,
         userContext
     }));
 
