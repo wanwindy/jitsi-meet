@@ -6,6 +6,7 @@ import { IConfigState } from '../config/reducer';
 import { IJwtState } from '../jwt/reducer';
 import { toState } from '../redux/functions';
 import { parseURLParams } from '../util/parseURLParams';
+import { parseStandardURIString } from '../util/uri';
 
 import { DEFAULT_SERVER_URL } from './constants';
 import { ISettingsState } from './reducer';
@@ -100,7 +101,52 @@ export function getPropertyValue(
 export function getServerURL(stateful: IStateful) {
     const state = toState(stateful);
 
-    return state['features/base/settings'].serverURL || DEFAULT_SERVER_URL;
+    return normalizeServerURL(state['features/base/settings'].serverURL) || DEFAULT_SERVER_URL;
+}
+
+/**
+ * Normalizes a server URL so meeting-number flows always start from a server
+ * base URL instead of reusing a previously joined room path.
+ *
+ * @param {string | null | undefined} url - The URL to normalize.
+ * @returns {string | null | undefined}
+ */
+export function normalizeServerURL(url?: string | null) {
+    if (!url) {
+        return url;
+    }
+
+    let normalizedURL = url.replace(/\s/g, '').toLowerCase();
+    const urlRegExp = new RegExp('^(\\w+://)?(.+)$');
+    const urlComponents = urlRegExp.exec(normalizedURL);
+
+    if (urlComponents && !urlComponents[1]?.startsWith('http')) {
+        normalizedURL = `https://${urlComponents[2]}`;
+    }
+
+    const parsedURI = parseStandardURIString(normalizedURL);
+
+    if (!parsedURI.host) {
+        return null;
+    }
+
+    let { pathname } = parsedURI;
+
+    if (!pathname || pathname === '/') {
+        pathname = '/';
+    } else if (!pathname.endsWith('/')) {
+        const lastSlash = pathname.lastIndexOf('/');
+
+        pathname = lastSlash <= 0
+            ? `${pathname}/`
+            : pathname.substring(0, lastSlash + 1);
+    }
+
+    parsedURI.hash = '';
+    parsedURI.pathname = pathname;
+    parsedURI.search = '';
+
+    return parsedURI.toString();
 }
 
 /**

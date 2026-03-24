@@ -58,6 +58,10 @@ export function appNavigate(uri?: string, options: IReloadNowOptions = {}) {
         // default.
         if (!location?.host) {
             const defaultLocation = parseURIString(getDefaultURL(getState));
+            const defaultPath = defaultLocation.contextRoot || defaultLocation.pathname || '/';
+            const normalizedDefaultPath = defaultPath.endsWith('/')
+                ? defaultPath
+                : `${defaultPath}/`;
 
             if (location) {
                 location.host = defaultLocation.host;
@@ -65,8 +69,7 @@ export function appNavigate(uri?: string, options: IReloadNowOptions = {}) {
                 // FIXME Turn location's host, hostname, and port properties into
                 // setters in order to reduce the risks of inconsistent state.
                 location.hostname = defaultLocation.hostname;
-                location.pathname
-                    = defaultLocation.pathname + location.pathname.substr(1);
+                location.pathname = normalizedDefaultPath + location.pathname.substr(1);
                 location.port = defaultLocation.port;
                 location.protocol = defaultLocation.protocol;
             } else {
