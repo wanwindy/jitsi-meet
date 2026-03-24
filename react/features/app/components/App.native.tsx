@@ -12,7 +12,6 @@ import { CALL_INTEGRATION_ENABLED } from '../../base/flags/constants';
 import { clientResized, setSafeAreaInsets } from '../../base/responsive-ui/actions';
 import DimensionsDetector from '../../base/responsive-ui/components/DimensionsDetector.native';
 import { updateSettings } from '../../base/settings/actions';
-import { normalizeServerURL } from '../../base/settings/functions.any';
 import JitsiThemePaperProvider from '../../base/ui/components/JitsiThemeProvider.native';
 import { isEmbedded } from '../../base/util/embedUtils.native';
 import { _getRouteToRender } from '../getRouteToRender.native';
@@ -163,7 +162,7 @@ export class App extends AbstractApp<IProps> {
             const { serverURL } = url;
 
             if (typeof serverURL !== 'undefined') {
-                dispatch?.(updateSettings({ serverURL: normalizeServerURL(serverURL) ?? serverURL }));
+                dispatch?.(updateSettings({ serverURL }));
             }
         }
 

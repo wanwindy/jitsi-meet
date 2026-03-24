@@ -8,7 +8,8 @@ import { getFeatureFlag } from '../base/flags/functions';
 import i18next, { DEFAULT_LANGUAGE, LANGUAGES } from '../base/i18n/i18next';
 import { getLocalParticipant } from '../base/participants/functions';
 import { toState } from '../base/redux/functions';
-import { getHideSelfView, normalizeServerURL } from '../base/settings/functions.any';
+import { getHideSelfView } from '../base/settings/functions.any';
+import { parseStandardURIString } from '../base/util/uri';
 import { isStageFilmstripEnabled } from '../filmstrip/functions';
 import { isFollowMeActive, isFollowMeRecorderActive } from '../follow-me/functions';
 import { isReactionsEnabled } from '../reactions/functions.any';
@@ -38,7 +39,30 @@ export function isServerURLChangeEnabled(stateful: IStateful) {
  * @returns {string|null} - The normalized URL, or null if the URL is invalid.
  */
 export function normalizeUserInputURL(url: string) {
-    return normalizeServerURL(url);
+    /* eslint-disable no-param-reassign */
+
+    if (url) {
+        url = url.replace(/\s/g, '').toLowerCase();
+
+        const urlRegExp = new RegExp('^(\\w+://)?(.+)$');
+        const urlComponents = urlRegExp.exec(url);
+
+        if (urlComponents && !urlComponents[1]?.startsWith('http')) {
+            url = `https://${urlComponents[2]}`;
+        }
+
+        const parsedURI = parseStandardURIString(url);
+
+        if (!parsedURI.host) {
+            return null;
+        }
+
+        return parsedURI.toString();
+    }
+
+    return url;
+
+    /* eslint-enable no-param-reassign */
 }
 
 /**
