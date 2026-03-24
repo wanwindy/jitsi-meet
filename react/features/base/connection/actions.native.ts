@@ -8,6 +8,7 @@ import { conferenceLeft } from '../conference/actions.native';
 import { setJWT } from '../jwt/actions';
 import { JitsiConnectionErrors } from '../lib-jitsi-meet';
 
+import { CONNECTION_ESTABLISHED } from './actionTypes';
 import { _connectInternal } from './actions.native';
 import logger from './logger';
 
@@ -23,11 +24,28 @@ export * from './actions.any';
 export function connect(id?: string, password?: string) {
     return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
         const state = getState();
-        const { connection, connecting } = state['features/base/connection'];
+        const {
+            connection,
+            connecting,
+            timeEstablished
+        } = state['features/base/connection'];
+        const {
+            authRequired,
+            conference,
+            room
+        } = state['features/base/conference'];
         const { jwt } = state['features/base/jwt'];
         const activeConnection = connection || connecting;
 
         if (!id && !password && activeConnection) {
+            if (connection && !conference && !authRequired && room) {
+                dispatch({
+                    type: CONNECTION_ESTABLISHED,
+                    connection,
+                    timeEstablished: timeEstablished || Date.now()
+                });
+            }
+
             return Promise.resolve(activeConnection);
         }
 
