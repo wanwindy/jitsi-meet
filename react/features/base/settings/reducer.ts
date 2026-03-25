@@ -100,6 +100,8 @@ export interface ISettingsState {
 }
 
 const STORE_NAME = 'features/base/settings';
+const LEGACY_SERVER_HOST_PATTERN = /^https?:\/\/d\.xianxinhn\.xyz(?=\/|$)/;
+const MIGRATED_SERVER_URL = 'https://fangxinbanmeet.com';
 
 /**
  * Sets up the persistence of the feature {@code base/settings}.
@@ -167,8 +169,17 @@ function _initSettings(featureState: ISettingsState) {
 
     settings = assignIfDefined({
         displayName,
-        email
+        email,
+        serverURL: _migrateServerURL(settings.serverURL)
     }, settings);
 
     return settings;
+}
+
+function _migrateServerURL(serverURL?: string) {
+    if (!serverURL) {
+        return serverURL;
+    }
+
+    return serverURL.replace(LEGACY_SERVER_HOST_PATTERN, MIGRATED_SERVER_URL);
 }

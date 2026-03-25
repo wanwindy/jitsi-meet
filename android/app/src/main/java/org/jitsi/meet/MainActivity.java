@@ -155,7 +155,7 @@ public class MainActivity extends JitsiMeetActivity {
         // Set default options
         JitsiMeetConferenceOptions defaultOptions
             = new JitsiMeetConferenceOptions.Builder()
-            .setServerURL(buildURL("https://d.xianxinhn.xyz"))
+            .setServerURL(buildURL("https://fangxinbanmeet.com"))
             .setFeatureFlag("welcomepage.enabled", true)
             .setFeatureFlag("server-url-change.enabled", false)
             .build();

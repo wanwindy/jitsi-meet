@@ -3,7 +3,7 @@
 
     <!-- Server URL configuration -->
     <restriction
-        android:defaultValue="https://d.xianxinhn.xyz"
+        android:defaultValue="https://fangxinbanmeet.com"
         android:description="@string/restriction_server_url_description"
         android:key="SERVER_URL"
         android:restrictionType="string"
