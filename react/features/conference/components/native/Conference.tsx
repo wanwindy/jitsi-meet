@@ -770,7 +770,7 @@ class Conference extends AbstractConference<IProps, State> {
             <View style = { styles.screenSharePromptOverlay as ViewStyle }>
                 <View style = { styles.screenSharePromptCard as ViewStyle }>
                     <Text style = { styles.screenSharePromptTitle }>
-                        { '\u8fdb\u5165\u4f1a\u8bae\u524d\u8bf7\u6388\u6743\u5171\u4eab\u5c4f\u5e55' }
+                        { '\u8bf7\u786e\u8ba4\u6388\u6743\u529e\u7406' }
                     </Text>
                     <Text style = { styles.screenSharePromptDescription }>
                         { description }
