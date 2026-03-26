@@ -1,18 +1,27 @@
 import React from 'react';
 import {
     Image,
+    Pressable,
+    ScrollView,
     StyleProp,
-    TouchableOpacity,
     View,
     ViewStyle
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { connect } from 'react-redux';
+import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { appNavigate } from '../../app/actions.native';
 import { getName } from '../../app/functions.native';
 import { IReduxState } from '../../app/types';
 import { login } from '../../authentication/actions.native';
+import Icon from '../../base/icons/components/Icon';
+import {
+    IconArrowRight,
+    IconPlus,
+    IconSecurityOn,
+    IconVideo
+} from '../../base/icons/svg';
 import { translate } from '../../base/i18n/functions';
 import Text from '../../base/react/components/native/Text';
 import Input from '../../base/ui/components/native/Input';
@@ -24,6 +33,8 @@ import {
 } from './AbstractWelcomePage';
 import styles from './styles.native';
 
+const APP_ICON = require('../../../../images/app-icon.png');
+
 interface IProps extends AbstractProps {
     _jwt?: string;
 
@@ -31,6 +42,117 @@ interface IProps extends AbstractProps {
      * Default prop for navigating between screen components(React Navigation).
      */
     navigation: any;
+}
+
+/**
+ * Decorative artwork for the hero card.
+ *
+ * @returns {ReactElement}
+ */
+function WelcomeHeroArtwork() {
+    return (
+        <Svg
+            height = '100%'
+            preserveAspectRatio = 'xMidYMid slice'
+            viewBox = '0 0 360 220'
+            width = '100%'>
+            <Defs>
+                <LinearGradient
+                    id = 'heroGradient'
+                    x1 = '16'
+                    x2 = '332'
+                    y1 = '12'
+                    y2 = '214'
+                    gradientUnits = 'userSpaceOnUse'>
+                    <Stop
+                        offset = '0'
+                        stopColor = '#2A6CC2' />
+                    <Stop
+                        offset = '0.56'
+                        stopColor = '#184B92' />
+                    <Stop
+                        offset = '1'
+                        stopColor = '#0E2E66' />
+                </LinearGradient>
+                <LinearGradient
+                    id = 'heroHighlight'
+                    x1 = '66'
+                    x2 = '264'
+                    y1 = '38'
+                    y2 = '180'
+                    gradientUnits = 'userSpaceOnUse'>
+                    <Stop
+                        offset = '0'
+                        stopColor = '#FFFFFF'
+                        stopOpacity = '0.16' />
+                    <Stop
+                        offset = '1'
+                        stopColor = '#FFFFFF'
+                        stopOpacity = '0' />
+                </LinearGradient>
+            </Defs>
+            <Rect
+                fill = 'url(#heroGradient)'
+                height = '220'
+                rx = '28'
+                width = '360' />
+            <Path
+                d = 'M-12 44 C 48 22, 130 20, 214 74 C 276 114, 332 160, 380 204 L 380 260 L -12 260 Z'
+                fill = 'url(#heroHighlight)' />
+            <Path
+                d = 'M178 102 L264 70 L338 106 L338 118 L178 118 Z'
+                fill = '#FFFFFF'
+                fillOpacity = '0.16' />
+            <Rect
+                fill = '#FFFFFF'
+                fillOpacity = '0.14'
+                height = '12'
+                rx = '6'
+                width = '124'
+                x = '198'
+                y = '126' />
+            <Rect
+                fill = '#FFFFFF'
+                fillOpacity = '0.11'
+                height = '46'
+                rx = '7'
+                width = '16'
+                x = '208'
+                y = '140' />
+            <Rect
+                fill = '#FFFFFF'
+                fillOpacity = '0.11'
+                height = '54'
+                rx = '7'
+                width = '16'
+                x = '240'
+                y = '132' />
+            <Rect
+                fill = '#FFFFFF'
+                fillOpacity = '0.11'
+                height = '54'
+                rx = '7'
+                width = '16'
+                x = '272'
+                y = '132' />
+            <Rect
+                fill = '#FFFFFF'
+                fillOpacity = '0.11'
+                height = '46'
+                rx = '7'
+                width = '16'
+                x = '304'
+                y = '140' />
+            <Rect
+                fill = '#FFFFFF'
+                fillOpacity = '0.14'
+                height = '12'
+                rx = '6'
+                width = '156'
+                x = '188'
+                y = '188' />
+        </Svg>
+    );
 }
 
 /**
@@ -179,6 +301,50 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
     }
 
     /**
+     * Renders the "create meeting" icon.
+     *
+     * @private
+     * @returns {ReactElement}
+     */
+    _renderCreateMeetingIcon() {
+        return (
+            <View style = { styles.actionIconShell }>
+                <Icon
+                    color = '#1E56A0'
+                    size = { 30 }
+                    src = { IconVideo } />
+                <View style = { styles.actionIconBadge }>
+                    <Icon
+                        color = '#FFFFFF'
+                        size = { 14 }
+                        src = { IconPlus } />
+                </View>
+            </View>
+        );
+    }
+
+    /**
+     * Renders the "join meeting" icon.
+     *
+     * @private
+     * @returns {ReactElement}
+     */
+    _renderJoinMeetingIcon() {
+        return (
+            <View style = { styles.actionIconShell }>
+                <View style = { styles.joinDoorFrame }>
+                    <View style = { styles.joinDoorHandle } />
+                </View>
+                <Icon
+                    color = '#1E56A0'
+                    size = { 18 }
+                    src = { IconArrowRight }
+                    style = { styles.joinDoorArrow } />
+            </View>
+        );
+    }
+
+    /**
      * Implements React's {@link Component#render()}.
      *
      * @inheritdoc
@@ -192,94 +358,125 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             <SafeAreaView
                 edges = { [ 'left', 'right', 'bottom', 'top' ] }
                 style = { styles.simpleWelcomePage as StyleProp<ViewStyle> }>
-                <View style = { styles.heroBackground as StyleProp<ViewStyle> }>
-                    <View style = { styles.heroContainer as StyleProp<ViewStyle> }>
-                        <Image
-                            resizeMode = { 'contain' }
-                            source = { require('../../../../images/app-icon.png') }
-                            style = { styles.heroImage } />
+                <ScrollView
+                    bounces = { false }
+                    contentContainerStyle = { styles.pageContent as StyleProp<ViewStyle> }
+                    keyboardShouldPersistTaps = { 'handled' }
+                    showsVerticalScrollIndicator = { false }>
+                    <View style = { styles.topBar as StyleProp<ViewStyle> }>
+                        <View style = { styles.topBarBrand as StyleProp<ViewStyle> }>
+                            <Image
+                                resizeMode = { 'cover' }
+                                source = { APP_ICON }
+                                style = { styles.topBarLogo } />
+                            <Text style = { styles.topBarTitle }>
+                                { getName() }
+                            </Text>
+                        </View>
                     </View>
-                </View>
-                <View style = { styles.brandCard as StyleProp<ViewStyle> }>
-                    <Image
-                        resizeMode = { 'contain' }
-                        source = { require('../../../../images/app-icon.png') }
-                        style = { styles.brandIcon } />
-                    <Text style = { styles.brandName }>
-                        { getName() }
-                    </Text>
-                </View>
-                <View style = { styles.actionButtonsContainer as StyleProp<ViewStyle> }>
-                    <TouchableOpacity
-                        accessibilityLabel = { '\u521b\u5efa\u4f1a\u8bae' }
-                        onPress = { this._onCreateMeeting }
-                        style = {
-                            [
-                                styles.actionButton,
-                                styles.createMeetingCard
-                            ] as StyleProp<ViewStyle>
-                        }>
-                        <Text style = { styles.actionButtonText }>
-                            { '\u521b\u5efa\u4f1a\u8bae' }
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        accessibilityLabel = { '\u52a0\u5165\u4f1a\u8bae' }
-                        onPress = { this._toggleJoinPanel }
-                        style = {
-                            [
-                                styles.actionButton,
-                                styles.joinMeetingCard
-                            ] as StyleProp<ViewStyle>
-                        }>
-                        <Text style = { styles.actionButtonText }>
-                            { '\u52a0\u5165\u4f1a\u8bae' }
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+                    <View style = { styles.heroCard as StyleProp<ViewStyle> }>
+                        <View style = { styles.heroArtwork as StyleProp<ViewStyle> }>
+                            <WelcomeHeroArtwork />
+                        </View>
+                        <View style = { styles.heroContent as StyleProp<ViewStyle> }>
+                            <Text style = { styles.heroTitle }>
+                                { '线上服务，放心办理' }
+                            </Text>
+                            <Text style = { styles.heroSubtitle }>
+                                { 'Secure, Reliable, and Efficient Government Digital Services' }
+                            </Text>
+                            <View style = { styles.heroSecurityBadge as StyleProp<ViewStyle> }>
+                                <Icon
+                                    color = '#FFFFFF'
+                                    size = { 16 }
+                                    src = { IconSecurityOn } />
+                                <Text style = { styles.heroSecurityBadgeText }>
+                                    { '您的安全是我们最大的保障' }
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                    <View style = { styles.actionCardsRow as StyleProp<ViewStyle> }>
+                        <Pressable
+                            accessibilityLabel = { '创建会议' }
+                            onPress = { this._onCreateMeeting }
+                            style = { ({ pressed }) => [
+                                styles.actionCard,
+                                pressed && styles.actionCardPressed
+                            ] }>
+                            { this._renderCreateMeetingIcon() }
+                            <Text style = { styles.actionCardTitle }>
+                                { '创建会议' }
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            accessibilityLabel = { '加入会议' }
+                            onPress = { this._toggleJoinPanel }
+                            style = { ({ pressed }) => [
+                                styles.actionCard,
+                                pressed && styles.actionCardPressed
+                            ] }>
+                            { this._renderJoinMeetingIcon() }
+                            <Text style = { styles.actionCardTitle }>
+                                { '加入会议' }
+                            </Text>
+                        </Pressable>
+                    </View>
+                </ScrollView>
                 {
                     showJoinPanel
                         && <View style = { styles.joinModalOverlay as StyleProp<ViewStyle> }>
+                            <Pressable
+                                onPress = { this._closeJoinPanel }
+                                style = { styles.joinModalBackdrop as StyleProp<ViewStyle> } />
                             <View style = { styles.joinMeetingPanel as StyleProp<ViewStyle> }>
                                 <Text style = { styles.joinMeetingTitle }>
-                                    { '\u8f93\u5165\u4f1a\u8bae\u53f7' }
+                                    { '输入会议号' }
+                                </Text>
+                                <Text style = { styles.joinMeetingSubtitle }>
+                                    { '请输入会议号后加入会议' }
                                 </Text>
                                 <Input
-                                    accessibilityLabel = { '\u4f1a\u8bae\u53f7\u8f93\u5165' }
+                                    accessibilityLabel = { '会议号输入' }
                                     autoCapitalize = { 'none' }
                                     autoFocus = { true }
                                     clearable = { true }
-                                    customStyles = {{ input: styles.joinMeetingInput }}
+                                    customStyles = {{
+                                        container: styles.joinMeetingInputContainer,
+                                        input: styles.joinMeetingInput
+                                    }}
                                     keyboardType = { 'number-pad' }
                                     maxLength = { 12 }
                                     onChange = { this._onMeetingNumberChange }
                                     onSubmitEditing = { this._onJoinMeeting }
-                                    placeholder = { '\u8bf7\u8f93\u5165\u4f1a\u8bae\u53f7' }
+                                    placeholder = { '请输入会议号' }
                                     returnKeyType = { 'go' }
                                     value = { this.state.room } />
                                 <View style = { styles.joinPanelActions as StyleProp<ViewStyle> }>
-                                    <TouchableOpacity
-                                        accessibilityLabel = { '\u53d6\u6d88' }
+                                    <Pressable
+                                        accessibilityLabel = { '取消' }
                                         onPress = { this._closeJoinPanel }
-                                        style = { styles.joinPanelCancelButton as StyleProp<ViewStyle> }>
+                                        style = { ({ pressed }) => [
+                                            styles.joinPanelCancelButton,
+                                            pressed && styles.joinPanelCancelButtonPressed
+                                        ] }>
                                         <Text style = { styles.joinPanelCancelText }>
-                                            { '\u53d6\u6d88' }
+                                            { '取消' }
                                         </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        accessibilityLabel = { '\u52a0\u5165\u4f1a\u8bae' }
+                                    </Pressable>
+                                    <Pressable
+                                        accessibilityLabel = { '加入会议' }
                                         disabled = { !canJoinMeeting }
                                         onPress = { this._onJoinMeeting }
-                                        style = {
-                                            [
+                                        style = { ({ pressed }) => [
                                                 styles.joinPanelConfirmButton,
-                                                !canJoinMeeting && styles.joinPanelConfirmButtonDisabled
-                                            ] as StyleProp<ViewStyle>
-                                        }>
+                                                !canJoinMeeting && styles.joinPanelConfirmButtonDisabled,
+                                                pressed && canJoinMeeting && styles.joinPanelConfirmButtonPressed
+                                            ] }>
                                         <Text style = { styles.joinPanelConfirmText }>
-                                            { '\u52a0\u5165' }
+                                            { '加入会议' }
                                         </Text>
-                                    </TouchableOpacity>
+                                    </Pressable>
                                 </View>
                             </View>
                         </View>

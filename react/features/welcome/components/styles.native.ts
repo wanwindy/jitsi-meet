@@ -223,149 +223,326 @@ export default {
     },
 
     simpleWelcomePage: {
-        backgroundColor: '#F1F5FA',
+        backgroundColor: '#F8FAFC',
         flex: 1
     },
 
-    heroBackground: {
+    pageContent: {
+        paddingBottom: 40
+    },
+
+    topBar: {
+        backgroundColor: '#FFFFFF',
+        borderBottomColor: '#E3EAF2',
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingBottom: 16,
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        shadowColor: '#143865',
+        shadowOffset: {
+            width: 0,
+            height: 4
+        },
+        shadowOpacity: 0.04,
+        shadowRadius: 14,
+        elevation: 2
+    },
+
+    topBarBrand: {
         alignItems: 'center',
-        backgroundColor: '#EAF7FF',
-        borderBottomLeftRadius: 26,
-        borderBottomRightRadius: 26,
-        paddingBottom: BaseTheme.spacing[3],
-        paddingTop: BaseTheme.spacing[2]
+        flexDirection: 'row'
     },
 
-    heroContainer: {
+    topBarLogo: {
+        borderRadius: 10,
+        height: 40,
+        marginRight: 12,
+        width: 40
+    },
+
+    topBarTitle: {
+        color: '#1E56A0',
+        fontSize: 28,
+        fontWeight: '800',
+        letterSpacing: 0.2,
+        lineHeight: 34
+    },
+
+    heroCard: {
+        backgroundColor: '#1E56A0',
+        borderRadius: 28,
+        marginHorizontal: 16,
+        marginTop: 18,
+        minHeight: 218,
+        overflow: 'hidden',
+        shadowColor: '#143865',
+        shadowOffset: {
+            width: 0,
+            height: 12
+        },
+        shadowOpacity: 0.14,
+        shadowRadius: 24,
+        elevation: 5
+    },
+
+    heroArtwork: {
+        ...StyleSheet.absoluteFillObject
+    },
+
+    heroContent: {
+        justifyContent: 'flex-end',
+        minHeight: 218,
+        paddingHorizontal: 24,
+        paddingVertical: 24
+    },
+
+    heroTitle: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '800',
+        lineHeight: 34,
+        maxWidth: 220
+    },
+
+    heroSubtitle: {
+        color: 'rgba(255, 255, 255, 0.84)',
+        fontSize: 15,
+        lineHeight: 21,
+        marginTop: 10,
+        maxWidth: 210
+    },
+
+    heroSecurityBadge: {
         alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%'
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+        borderColor: 'rgba(255, 255, 255, 0.14)',
+        borderRadius: 999,
+        borderWidth: 1,
+        flexDirection: 'row',
+        marginTop: 22,
+        paddingHorizontal: 14,
+        paddingVertical: 10
     },
 
-    heroImage: {
-        height: 164,
-        width: 164
+    heroSecurityBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontWeight: '700',
+        marginLeft: 8
     },
 
-    brandCard: {
+    actionCardsRow: {
+        flexDirection: 'row',
+        marginHorizontal: 10,
+        marginTop: 22,
+        paddingHorizontal: 6
+    },
+
+    actionCard: {
         alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        flexDirection: 'row',
-        marginHorizontal: BaseTheme.spacing[3],
-        marginTop: BaseTheme.spacing[3],
-        paddingHorizontal: BaseTheme.spacing[2],
-        paddingVertical: BaseTheme.spacing[2]
+        borderColor: '#E6ECF3',
+        borderRadius: 28,
+        borderWidth: 1,
+        flex: 1,
+        marginHorizontal: 6,
+        minHeight: 184,
+        paddingHorizontal: 16,
+        paddingVertical: 28,
+        shadowColor: '#183A6A',
+        shadowOffset: {
+            width: 0,
+            height: 8
+        },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+        elevation: 4
     },
 
-    brandIcon: {
-        borderRadius: 4,
+    actionCardPressed: {
+        elevation: 6,
+        shadowOpacity: 0.16,
+        shadowRadius: 12,
+        transform: [ { scale: 0.98 } ]
+    },
+
+    actionIconShell: {
+        alignItems: 'center',
+        backgroundColor: '#EEF4FF',
+        borderRadius: 22,
+        flexDirection: 'row',
+        height: 72,
+        justifyContent: 'center',
+        marginBottom: 24,
+        position: 'relative',
+        width: 72
+    },
+
+    actionIconBadge: {
+        alignItems: 'center',
+        backgroundColor: '#1E56A0',
+        borderRadius: 7,
         height: 22,
-        marginRight: BaseTheme.spacing[1],
+        justifyContent: 'center',
+        left: 12,
+        position: 'absolute',
+        top: 14,
         width: 22
     },
 
-    brandName: {
-        color: '#194163',
-        ...BaseTheme.typography.heading6
+    joinDoorFrame: {
+        borderColor: '#1E56A0',
+        borderRadius: 5,
+        borderWidth: 2,
+        height: 32,
+        marginRight: 8,
+        width: 20
     },
 
-    actionButtonsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginHorizontal: BaseTheme.spacing[2],
-        marginTop: BaseTheme.spacing[3]
+    joinDoorHandle: {
+        backgroundColor: '#1E56A0',
+        borderRadius: 99,
+        height: 5,
+        position: 'absolute',
+        right: 3,
+        top: 12,
+        width: 5
     },
 
-    actionButton: {
-        borderRadius: 12,
-        flex: 1,
-        marginHorizontal: BaseTheme.spacing[1],
-        minHeight: 92,
-        paddingHorizontal: BaseTheme.spacing[2],
-        paddingVertical: BaseTheme.spacing[3]
+    joinDoorArrow: {
+        marginLeft: 2
     },
 
-    actionButtonText: {
-        color: '#FFFFFF',
-        ...BaseTheme.typography.heading6
-    },
-
-    createMeetingCard: {
-        backgroundColor: '#23A9F4'
-    },
-
-    joinMeetingCard: {
-        backgroundColor: '#2FD8A3'
+    actionCardTitle: {
+        color: '#10284A',
+        fontSize: 18,
+        fontWeight: '800',
+        lineHeight: 26
     },
 
     joinModalOverlay: {
         ...StyleSheet.absoluteFillObject,
         alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.32)',
-        justifyContent: 'center',
-        paddingHorizontal: BaseTheme.spacing[3]
+        backgroundColor: 'rgba(8, 24, 47, 0.32)',
+        justifyContent: 'flex-end',
+        paddingBottom: 24,
+        paddingHorizontal: 16
+    },
+
+    joinModalBackdrop: {
+        ...StyleSheet.absoluteFillObject
     },
 
     joinMeetingPanel: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 14,
+        borderRadius: 24,
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+        shadowColor: '#143865',
+        shadowOffset: {
+            width: 0,
+            height: 10
+        },
+        shadowOpacity: 0.14,
+        shadowRadius: 24,
         width: '100%',
-        padding: BaseTheme.spacing[3]
+        elevation: 8
     },
 
     joinMeetingTitle: {
-        color: '#194163',
-        ...BaseTheme.typography.bodyShortBold,
-        marginBottom: BaseTheme.spacing[2]
+        color: '#143865',
+        fontSize: 20,
+        fontWeight: '800',
+        lineHeight: 28
+    },
+
+    joinMeetingSubtitle: {
+        color: '#60738A',
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 14,
+        marginTop: 8
+    },
+
+    joinMeetingInputContainer: {
+        marginBottom: 6
     },
 
     joinMeetingInput: {
-        fontSize: 20,
-        letterSpacing: 2,
+        backgroundColor: '#F4F8FC',
+        borderColor: '#D5E2F0',
+        borderRadius: 16,
+        borderWidth: 1,
+        color: '#143865',
+        fontSize: 22,
+        fontWeight: '700',
+        letterSpacing: 1.4,
+        minHeight: 56,
+        paddingHorizontal: 16,
         textAlign: 'left'
     },
 
     joinPanelActions: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        marginTop: BaseTheme.spacing[2]
+        justifyContent: 'space-between',
+        marginTop: 18
     },
 
     joinPanelCancelButton: {
         alignItems: 'center',
-        borderColor: '#C5D6E6',
-        borderRadius: 8,
+        backgroundColor: '#FFFFFF',
+        borderColor: '#D4DFEA',
+        borderRadius: 16,
         borderWidth: 1,
+        flex: 1,
+        height: 48,
         justifyContent: 'center',
-        marginRight: BaseTheme.spacing[2],
-        minHeight: 40,
-        minWidth: 88,
-        paddingHorizontal: BaseTheme.spacing[2]
+        marginRight: 8
+    },
+
+    joinPanelCancelButtonPressed: {
+        backgroundColor: '#F4F8FC'
     },
 
     joinPanelCancelText: {
-        color: '#38546F',
-        ...BaseTheme.typography.bodyShortBold
+        color: '#45627D',
+        fontSize: 15,
+        fontWeight: '700'
     },
 
     joinPanelConfirmButton: {
         alignItems: 'center',
-        backgroundColor: '#23A9F4',
-        borderRadius: 8,
+        backgroundColor: '#1E56A0',
+        borderRadius: 16,
+        flex: 1,
+        height: 48,
         justifyContent: 'center',
-        minHeight: 40,
-        minWidth: 88,
-        paddingHorizontal: BaseTheme.spacing[2]
+        marginLeft: 8,
+        shadowColor: '#1E56A0',
+        shadowOffset: {
+            width: 0,
+            height: 6
+        },
+        shadowOpacity: 0.18,
+        shadowRadius: 12,
+        elevation: 4
+    },
+
+    joinPanelConfirmButtonPressed: {
+        backgroundColor: '#174784'
     },
 
     joinPanelConfirmButtonDisabled: {
-        backgroundColor: '#8FC6EA'
+        backgroundColor: '#97B5D3',
+        elevation: 0,
+        shadowOpacity: 0
     },
 
     joinPanelConfirmText: {
         color: '#FFFFFF',
-        ...BaseTheme.typography.bodyShortBold
+        fontSize: 15,
+        fontWeight: '800'
     },
 
     joinMeetingButton: {
