@@ -125,14 +125,27 @@ android.libraryVariants.all { def variant ->
             resourcesDir.mkdirs()
         }
 
-        // Set up inputs and outputs so gradle can cache the result
+        // Set up inputs and outputs so gradle can cache the result.
+        // Limit the snapshot to runtime-relevant sources; scanning the whole
+        // repository makes Gradle track docs and VCS files that do not affect
+        // the React Native bundle and may be unreadable on CI with localized
+        // filenames.
         def reactRoot = file("${projectDir}/../../")
         inputs.files fileTree(dir: reactRoot, excludes: [
             "android/**",
+            "AppAssets/**",
+            "debian/**",
+            "doc/**",
+            ".devcontainer/**",
+            ".git/**",
+            ".github/**",
             "ios/**",
+            "metadata/**",
             "node_modules/**/.gradle/**",
             "node_modules/**/android/**",
-            "node_modules/**/ios/**"
+            "node_modules/**/ios/**",
+            "tests/**",
+            "twa/**"
         ])
         outputs.dir jsBundleDir
         outputs.dir resourcesDir
