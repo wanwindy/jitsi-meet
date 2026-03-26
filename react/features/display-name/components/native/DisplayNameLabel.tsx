@@ -71,11 +71,12 @@ class DisplayNameLabel extends React.Component<IProps> {
  */
 function _mapStateToProps(state: IReduxState, ownProps: Partial<IProps>) {
     const participant = getParticipantById(state, ownProps.participantId ?? '');
+    const isScreenshareParticipant = isScreenShareParticipant(participant);
 
     return {
         _participantName: getParticipantDisplayName(state, ownProps.participantId ?? ''),
         _render: Boolean(participant && (!participant?.local || ownProps.contained)
-            && (!participant?.fakeParticipant || isScreenShareParticipant(participant)))
+            && (!participant?.fakeParticipant || (isScreenshareParticipant && ownProps.contained)))
     };
 }
 
