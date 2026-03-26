@@ -153,9 +153,13 @@ export function appNavigate(uri?: string, options: IReloadNowOptions = {}) {
             return;
         }
 
+        const currentConferenceState = getState()['features/base/conference'];
+        const meetingEntryType = options.meetingEntryType
+            ?? (room && room === currentConferenceState.room ? currentConferenceState.meetingEntryType : undefined);
+
         dispatch(setLocationURL(locationURL));
         dispatch(setConfig(config));
-        dispatch(setRoom(room));
+        dispatch(setRoom(room, meetingEntryType));
 
         if (!room) {
             goBackToRoot(getState(), dispatch);

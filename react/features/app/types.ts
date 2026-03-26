@@ -180,4 +180,5 @@ export interface IReduxState {
 
 export interface IReloadNowOptions {
     hidePrejoin?: boolean;
+    meetingEntryType?: 'create' | 'join';
 }

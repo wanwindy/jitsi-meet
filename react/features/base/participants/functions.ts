@@ -402,6 +402,29 @@ export function getParticipantAccountId(participant?: IParticipant): string | un
 }
 
 /**
+ * Returns whether the local participant is allowed to share screen on native mobile.
+ * Business meeting entry type takes precedence; role is only used as a fallback for flows
+ * that did not originate from the native create/join welcome actions.
+ *
+ * @param {(Function|Object)} stateful - The redux state.
+ * @returns {boolean}
+ */
+export function isLocalParticipantAllowedToShareScreenOnMobile(stateful: IStateful) {
+    const state = toState(stateful);
+    const { meetingEntryType } = state['features/base/conference'];
+
+    if (meetingEntryType === 'join') {
+        return true;
+    }
+
+    if (meetingEntryType === 'create') {
+        return false;
+    }
+
+    return state['features/base/participants'].local?.role === PARTICIPANT_ROLE.PARTICIPANT;
+}
+
+/**
  * Returns participant's display name.
  *
  * @param {(Function|Object)} stateful - The (whole) redux state, or redux's {@code getState} function to be used to

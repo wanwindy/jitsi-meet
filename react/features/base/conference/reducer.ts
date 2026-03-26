@@ -44,12 +44,15 @@ const DEFAULT_STATE = {
     joining: undefined,
     leaving: undefined,
     locked: undefined,
+    meetingEntryType: undefined,
     membersOnly: undefined,
     metadata: undefined,
     password: undefined,
     passwordRequired: undefined,
     properties: undefined
 };
+
+export type MeetingEntryType = 'create' | 'join';
 
 export interface IConferenceMetadata {
     files: {
@@ -182,6 +185,7 @@ export interface IConferenceState {
     lobbyWaitingForHost?: boolean;
     localSubject?: string;
     locked?: string;
+    meetingEntryType?: MeetingEntryType;
     membersOnly?: IJitsiConference;
     metadata?: IConferenceMetadata;
     obfuscatedRoom?: string;
@@ -687,6 +691,7 @@ function _setRoom(state: IConferenceState, action: AnyAction) {
      */
     return assign(state, {
         error: undefined,
+        meetingEntryType: room ? action.meetingEntryType : undefined,
         room
     });
 }

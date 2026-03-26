@@ -8,7 +8,7 @@ import { IOS_SCREENSHARING_ENABLED } from '../../../base/flags/constants';
 import { getFeatureFlag } from '../../../base/flags/functions';
 import { translate } from '../../../base/i18n/functions';
 import { IconScreenshare } from '../../../base/icons/svg';
-import { PARTICIPANT_ROLE } from '../../../base/participants/constants';
+import { isLocalParticipantAllowedToShareScreenOnMobile } from '../../../base/participants/functions';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
 import { isLocalVideoTrackDesktop } from '../../../base/tracks/functions.native';
 
@@ -135,14 +135,13 @@ class ScreenSharingIosButton extends AbstractButton<IProps> {
  */
 function _mapStateToProps(state: IReduxState) {
     const enabled = getFeatureFlag(state, IOS_SCREENSHARING_ENABLED, false);
-    const localRole = state['features/base/participants'].local?.role;
 
     return {
         _screensharing: isLocalVideoTrackDesktop(state),
 
         // TODO: this should work on iOS 12 too, but our trick to show the picker doesn't work.
         visible: enabled
-            && localRole === PARTICIPANT_ROLE.PARTICIPANT
+            && isLocalParticipantAllowedToShareScreenOnMobile(state)
             && Platform.OS === 'ios'
             && Number.parseInt(Platform.Version.split('.')[0], 10) >= 14
     };

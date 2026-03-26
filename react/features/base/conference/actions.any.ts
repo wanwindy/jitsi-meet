@@ -87,6 +87,7 @@ import {
     updateTrackMuteState
 } from './functions';
 import logger from './logger';
+import type { MeetingEntryType } from './reducer';
 import { IConferenceMetadata, IJitsiConference } from './reducer';
 
 /**
@@ -963,14 +964,16 @@ export function setObfuscatedRoom(obfuscatedRoom: string, obfuscatedRoomSource: 
  *
  * @param {(string|undefined)} room - The name of the room of the conference to
  * be joined.
+ * @param {MeetingEntryType} meetingEntryType - The business entry path for the meeting on mobile.
  * @returns {{
  *     type: SET_ROOM,
  *     room: string
  * }}
  */
-export function setRoom(room?: string) {
+export function setRoom(room?: string, meetingEntryType?: MeetingEntryType) {
     return {
         type: SET_ROOM,
+        meetingEntryType,
         room
     };
 }

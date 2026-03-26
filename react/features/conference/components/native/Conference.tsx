@@ -22,6 +22,7 @@ import { isDisplayNameVisible } from '../../../base/config/functions.native';
 import { PARTICIPANT_ROLE } from '../../../base/participants/constants';
 import {
     getRemoteParticipants,
+    isLocalParticipantAllowedToShareScreenOnMobile,
     isLocalParticipantModerator
 } from '../../../base/participants/functions';
 import Container from '../../../base/react/components/native/Container';
@@ -125,6 +126,11 @@ interface IProps extends AbstractProps {
     _isDisplayNameVisible: boolean;
 
     /**
+     * Whether local participant is allowed to share screen on native mobile.
+     */
+    _isLocalParticipantAllowedToShareScreen: boolean;
+
+    /**
      * Whether local participant has moderator role.
      */
     _isLocalParticipantModerator: boolean;
@@ -148,11 +154,6 @@ interface IProps extends AbstractProps {
      * Local participant's display name.
      */
     _localParticipantDisplayName: string;
-
-    /**
-     * Local participant role.
-     */
-    _localParticipantRole?: string;
 
     /**
      * Whether Picture-in-Picture is enabled.
@@ -290,6 +291,7 @@ class Conference extends AbstractConference<IProps, State> {
         const {
             _audioOnlyEnabled,
             _isDesktopModerationEnabled,
+            _isLocalParticipantAllowedToShareScreen,
             _isLocalParticipantModerator,
             _isScreenSharing,
             _startCarMode,
@@ -301,10 +303,10 @@ class Conference extends AbstractConference<IProps, State> {
 
         if (_isLocalParticipantModerator) {
             _isDesktopModerationEnabled && dispatch(requestDisableDesktopModeration());
+        }
 
-            if (_isScreenSharing) {
-                dispatch(toggleScreensharing(false));
-            }
+        if (!_isLocalParticipantAllowedToShareScreen && _isScreenSharing) {
+            dispatch(toggleScreensharing(false));
         }
 
         this._syncScreenShareAuthorizationPrompt();
@@ -323,6 +325,7 @@ class Conference extends AbstractConference<IProps, State> {
         const {
             _audioOnlyEnabled,
             _isDesktopModerationEnabled,
+            _isLocalParticipantAllowedToShareScreen,
             _isLocalParticipantModerator,
             _isScreenSharing,
             _showLobby,
@@ -336,10 +339,12 @@ class Conference extends AbstractConference<IProps, State> {
                 || (!prevProps._isDesktopModerationEnabled && _isDesktopModerationEnabled)) {
                 dispatch(requestDisableDesktopModeration());
             }
+        }
 
-            if (_isScreenSharing && (!prevProps._isLocalParticipantModerator || !prevProps._isScreenSharing)) {
-                dispatch(toggleScreensharing(false));
-            }
+        if (!_isLocalParticipantAllowedToShareScreen
+            && _isScreenSharing
+            && (prevProps._isLocalParticipantAllowedToShareScreen || !prevProps._isScreenSharing)) {
+            dispatch(toggleScreensharing(false));
         }
 
         this._syncScreenShareAuthorizationPrompt(prevProps);
@@ -484,14 +489,14 @@ class Conference extends AbstractConference<IProps, State> {
         const {
             _connecting,
             _hasRemoteModerator,
+            _isLocalParticipantAllowedToShareScreen,
             _isLocalParticipantModerator,
             _isScreenSharing,
-            _localParticipantRole,
             _remoteParticipantCount,
             _showLobby
         } = this.props;
 
-        const shouldHidePrompt = _isLocalParticipantModerator || _isScreenSharing || _showLobby;
+        const shouldHidePrompt = !_isLocalParticipantAllowedToShareScreen || _isScreenSharing || _showLobby;
 
         if (shouldHidePrompt) {
             if (_isLocalParticipantModerator || _isScreenSharing) {
@@ -511,29 +516,13 @@ class Conference extends AbstractConference<IProps, State> {
             return;
         }
 
-        const hasResolvedLocalRole = _localParticipantRole === PARTICIPANT_ROLE.MODERATOR
-            || _localParticipantRole === PARTICIPANT_ROLE.PARTICIPANT;
-
-        if (!hasResolvedLocalRole) {
-            if (this.state.showScreenShareAuthorizationPrompt
-                || this.state.screenShareAuthorizationError
-                || this.state.screenShareAuthorizationInProgress) {
-                this.setState({
-                    screenShareAuthorizationError: undefined,
-                    screenShareAuthorizationInProgress: false,
-                    showScreenShareAuthorizationPrompt: false
-                });
-            }
-
-            return;
-        }
-
         const hasHostPresent = _hasRemoteModerator || _remoteParticipantCount > 0;
         const remoteParticipantCountChanged = prevProps && prevProps._remoteParticipantCount !== _remoteParticipantCount;
         const remoteModeratorChanged = prevProps && prevProps._hasRemoteModerator !== _hasRemoteModerator;
         const connectingFinished = prevProps && prevProps._connecting && !_connecting;
-        const becameNonModerator = prevProps && prevProps._isLocalParticipantModerator && !_isLocalParticipantModerator;
-        const shouldPromptForAuthorization = _localParticipantRole === PARTICIPANT_ROLE.PARTICIPANT
+        const becameEligibleForScreenShare
+            = prevProps && !prevProps._isLocalParticipantAllowedToShareScreen && _isLocalParticipantAllowedToShareScreen;
+        const shouldPromptForAuthorization = _isLocalParticipantAllowedToShareScreen
             && !_connecting
             && hasHostPresent
             && !this._hasHandledInitialScreenShareAuthorization;
@@ -543,7 +532,7 @@ class Conference extends AbstractConference<IProps, State> {
                 || remoteParticipantCountChanged
                 || remoteModeratorChanged
                 || connectingFinished
-                || becameNonModerator)) {
+                || becameEligibleForScreenShare)) {
             this.setState({
                 showScreenShareAuthorizationPrompt: true
             });
@@ -874,12 +863,12 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
         _hasRemoteModerator: hasRemoteModerator,
         _isDesktopModerationEnabled: isAvModerationEnabled(AV_MODERATION_MEDIA_TYPE.DESKTOP, state),
         _isDisplayNameVisible: isDisplayNameVisible(state),
+        _isLocalParticipantAllowedToShareScreen: isLocalParticipantAllowedToShareScreenOnMobile(state),
         _isLocalParticipantModerator: isLocalParticipantModerator(state),
         _isParticipantsPaneOpen: isOpen,
         _isScreenSharing: isLocalVideoTrackDesktop(state),
         _largeVideoParticipantId: state['features/large-video'].participantId,
         _remoteParticipantCount: remoteParticipants.length,
-        _localParticipantRole: state['features/base/participants'].local?.role,
         _pictureInPictureEnabled: isPipEnabled(state),
         _reducedUI: reducedUI,
         _showLobby: getIsLobbyVisible(state),

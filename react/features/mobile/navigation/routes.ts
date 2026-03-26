@@ -1,4 +1,7 @@
 export const screen = {
+    account: {
+        main: 'Account'
+    },
     conference: {
         breakoutRooms: 'Breakout Rooms',
         carmode: 'Car Mode',

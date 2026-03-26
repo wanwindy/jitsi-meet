@@ -15,16 +15,19 @@ import { appNavigate } from '../../app/actions.native';
 import { getName } from '../../app/functions.native';
 import { IReduxState } from '../../app/types';
 import { login } from '../../authentication/actions.native';
+import type { MeetingEntryType } from '../../base/conference/reducer';
 import Icon from '../../base/icons/components/Icon';
 import {
     IconArrowRight,
     IconPlus,
     IconSecurityOn,
+    IconUser,
     IconVideo
 } from '../../base/icons/svg';
 import { translate } from '../../base/i18n/functions';
 import Text from '../../base/react/components/native/Text';
 import Input from '../../base/ui/components/native/Input';
+import { screen } from '../../mobile/navigation/routes';
 
 import {
     IProps as AbstractProps,
@@ -176,6 +179,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         this._onJoinMeeting = this._onJoinMeeting.bind(this);
         this._onMeetingNumberChange = this._onMeetingNumberChange.bind(this);
         this._closeJoinPanel = this._closeJoinPanel.bind(this);
+        this._openAccountPage = this._openAccountPage.bind(this);
         this._toggleJoinPanel = this._toggleJoinPanel.bind(this);
     }
 
@@ -213,14 +217,14 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      * @param {string} room - Room/meeting number.
      * @returns {void}
      */
-    _navigateToMeeting(room: string, triggerLogin = false) {
+    _navigateToMeeting(room: string, triggerLogin = false, meetingEntryType?: MeetingEntryType) {
         const onAppNavigateSettled = () => {
             triggerLogin && this.props.dispatch(login());
             this._mounted && this.setState({ joining: false });
         };
 
         this.setState({ joining: true });
-        this.props.dispatch(appNavigate(room))
+        this.props.dispatch(appNavigate(room, { meetingEntryType }))
             .then(onAppNavigateSettled, onAppNavigateSettled);
     }
 
@@ -240,7 +244,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         const room = this._generateMeetingNumber();
 
         this.setState({ room });
-        this._navigateToMeeting(room, !_jwt);
+        this._navigateToMeeting(room, !_jwt, 'create');
     }
 
     /**
@@ -256,7 +260,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             return;
         }
 
-        this._onJoin();
+        this._navigateToMeeting(room, false, 'join');
         this.setState({
             isSettingsScreenFocused: false
         });
@@ -298,6 +302,16 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             isSettingsScreenFocused: !showJoinPanel,
             room: showJoinPanel ? '' : this.state.room
         });
+    }
+
+    /**
+     * Opens the account page.
+     *
+     * @private
+     * @returns {void}
+     */
+    _openAccountPage() {
+        this.props.navigation.navigate(screen.account.main);
     }
 
     /**
@@ -372,6 +386,20 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             <Text style = { styles.topBarTitle }>
                                 { getName() }
                             </Text>
+                        </View>
+                        <View style = { styles.topBarActions as StyleProp<ViewStyle> }>
+                            <Pressable
+                                accessibilityLabel = { '个人账号' }
+                                onPress = { this._openAccountPage }
+                                style = { ({ pressed }) => [
+                                    styles.topBarActionButton,
+                                    pressed && styles.topBarActionButtonPressed
+                                ] }>
+                                <Icon
+                                    color = '#1E56A0'
+                                    size = { 18 }
+                                    src = { IconUser } />
+                            </Pressable>
                         </View>
                     </View>
                     <View style = { styles.heroCard as StyleProp<ViewStyle> }>

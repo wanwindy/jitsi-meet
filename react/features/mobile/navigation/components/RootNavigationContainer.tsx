@@ -11,6 +11,9 @@ import { isUnsafeRoomWarningEnabled } from '../../../prejoin/functions.native';
 import VisitorsQueue from '../../../visitors/components/native/VisitorsQueue';
 // eslint-disable-next-line
 // @ts-ignore
+import AccountPage from '../../../welcome/components/AccountPage.native';
+// eslint-disable-next-line
+// @ts-ignore
 import WelcomePage from '../../../welcome/components/WelcomePage';
 import { isWelcomePageEnabled } from '../../../welcome/functions';
 import { _ROOT_NAVIGATION_READY } from '../actionTypes';
@@ -74,6 +77,13 @@ const RootNavigationContainer = ({ dispatch, isUnsafeRoomWarningAvailable, isWel
                 {
                     isWelcomePageAvailable
                         && <>
+                            <RootStack.Screen // @ts-ignore
+                                component = { AccountPage }
+                                name = { screen.account.main }
+                                options = {{
+                                    gestureEnabled: true,
+                                    headerShown: false
+                                }} />
                             <RootStack.Screen // @ts-ignore
                                 component = { WelcomePage }
                                 name = { screen.welcome.main }

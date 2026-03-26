@@ -232,9 +232,12 @@ export default {
     },
 
     topBar: {
+        alignItems: 'center',
         backgroundColor: '#FFFFFF',
         borderBottomColor: '#E3EAF2',
         borderBottomWidth: StyleSheet.hairlineWidth,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         paddingBottom: 16,
         paddingHorizontal: 20,
         paddingTop: 8,
@@ -253,6 +256,11 @@ export default {
         flexDirection: 'row'
     },
 
+    topBarActions: {
+        alignItems: 'center',
+        flexDirection: 'row'
+    },
+
     topBarLogo: {
         borderRadius: 10,
         height: 40,
@@ -266,6 +274,19 @@ export default {
         fontWeight: '800',
         letterSpacing: 0.2,
         lineHeight: 34
+    },
+
+    topBarActionButton: {
+        alignItems: 'center',
+        backgroundColor: '#EDF4FF',
+        borderRadius: 19,
+        height: 38,
+        justifyContent: 'center',
+        width: 38
+    },
+
+    topBarActionButtonPressed: {
+        opacity: 0.84
     },
 
     heroCard: {
