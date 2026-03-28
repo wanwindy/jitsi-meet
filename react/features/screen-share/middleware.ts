@@ -1,9 +1,13 @@
 import { IStore } from '../app/types';
-import { CONFERENCE_JOINED } from '../base/conference/actionTypes';
+import { CONFERENCE_JOINED, CONFERENCE_LEFT } from '../base/conference/actionTypes';
 import { MEDIA_TYPE } from '../base/media/constants';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 
-import { SET_SCREENSHARE_CAPTURE_FRAME_RATE, SET_SCREEN_AUDIO_SHARE_STATE } from './actionTypes';
+import {
+    SET_SCREENSHARE_CAPTURE_FRAME_RATE,
+    SET_SCREEN_AUDIO_SHARE_STATE,
+    SET_SCREENSHARE_TRACKS
+} from './actionTypes';
 import logger from './logger';
 
 /**
@@ -20,6 +24,10 @@ MiddlewareRegistry.register(store => next => action => {
     switch (action.type) {
     case CONFERENCE_JOINED: {
         _setScreenshareCaptureFps(store);
+        break;
+    }
+    case CONFERENCE_LEFT: {
+        _resetScreenShareState(store);
         break;
     }
     case SET_SCREENSHARE_CAPTURE_FRAME_RATE: {
@@ -68,5 +76,43 @@ function _setScreenshareCaptureFps(store: IStore, frameRate?: number) {
         logger.debug(`Setting screenshare capture frame rate as ${screenShareFps}`);
         conference.setDesktopSharingFrameRate(screenShareFps);
     }
+}
 
+/**
+ * Resets the screen share state when leaving a conference.
+ * This ensures that when a participant rejoins, the screen share state is clean
+ * and screen sharing can be properly initiated again.
+ *
+ * @param {IStore} store - The redux store.
+ * @private
+ * @returns {void}
+ */
+function _resetScreenShareState(store: IStore) {
+    const { dispatch, getState } = store;
+    const state = getState();
+    const screenShareState = state['features/screen-share'];
+    const { desktopAudioTrack, isSharingAudio } = screenShareState;
+
+    // Clean up desktop audio track if it exists and not already disposed
+    if (desktopAudioTrack) {
+        try {
+            desktopAudioTrack.dispose();
+        } catch (e) {
+            logger.debug('Desktop audio track already disposed', e);
+        }
+        dispatch({
+            type: SET_SCREENSHARE_TRACKS,
+            desktopAudioTrack: null
+        });
+    }
+
+    // Reset audio share state if it was active
+    if (isSharingAudio) {
+        dispatch({
+            type: SET_SCREEN_AUDIO_SHARE_STATE,
+            isSharingAudio: false
+        });
+    }
+
+    logger.debug('Screen share state reset after conference left.');
 }
