@@ -114,16 +114,34 @@ body.welcome-page {
         }
 
         ::placeholder {
-            color: #757575;
+            color: #757575 !important;
+        }
+
+        ::-webkit-input-placeholder {
+            color: #757575 !important;
+        }
+
+        ::-moz-placeholder {
+            color: #757575 !important;
+        }
+
+        :-ms-input-placeholder {
+            color: #757575 !important;
         }
 
         #enter_room {
             display: $welcomePageEnterRoomDisplay;
+            display: -webkit-flex;
             align-items: center;
+            -webkit-align-items: center;
             max-width: 480px;
             width: $welcomePageEnterRoomWidth;
             z-index: $zindex2;
+            height: -webkit-fit-content;
             height: fit-content;
+            min-height: 58px;
+            -webkit-appearance: none;
+            appearance: none;
 
             .join-meeting-container {
                 margin: $welcomePageEnterRoomMargin;
@@ -131,13 +149,18 @@ body.welcome-page {
                 border-radius: 4px;
                 background-color: #fff;
                 display: flex;
+                display: -webkit-flex;
                 width: 100%;
                 text-align: left;
                 color: #253858;
+                -webkit-box-sizing: border-box;
+                box-sizing: border-box;
+                border: 1px solid #e0e0e0;
             }
 
             .enter-room-input-container {
                 flex-grow: 1;
+                -webkit-flex-grow: 1;
                 padding-right: 4px;
 
                 .enter-room-input {
@@ -149,6 +172,13 @@ body.welcome-page {
                     width: 100%;
                     font-size: 0.875rem;
                     padding-left: 10px;
+                    color: #253858;
+                    -webkit-text-fill-color: #253858;
+                    -webkit-box-sizing: border-box;
+                    box-sizing: border-box;
+                    -webkit-appearance: none;
+                    appearance: none;
+                    outline: none;
 
                     &.focus-visible {
                         outline: auto 2px #005fcc;

@@ -20,16 +20,31 @@
 
             #enter_room {
                 width: 100%;
+                height: auto !important;
+                min-height: 100px;
 
                 .join-meeting-container {
                     padding: 0;
                     flex-direction: column;
+                    display: flex;
+                    display: -webkit-flex;
                     background: transparent;
+                    border: none;
                 }
 
                 .enter-room-input-container {
                     padding-right: 0;
                     margin-bottom: 10px;
+
+                    .enter-room-input {
+                        height: 50px;
+                        color: #253858;
+                        -webkit-text-fill-color: #253858;
+                        background: #fff;
+                        border: 1px solid #e0e0e0;
+                        -webkit-appearance: none;
+                        appearance: none;
+                    }
                 }
             }
         }
