@@ -370,10 +370,10 @@ var config = {
 
     // Optional desktop sharing frame rate options. Default value: min:5, max:5.
     // Setting higher min/max values will affect the resolution, it makes it worse.
-    // desktopSharingFrameRate: {
-    //     min: 5,
-    //     max: 5,
-    // },
+    desktopSharingFrameRate: {
+        min: 5,
+        max: 30,
+    },
 
     // Optional screenshare settings that give more control over screen capture in the browser.
     // screenShareSettings: {

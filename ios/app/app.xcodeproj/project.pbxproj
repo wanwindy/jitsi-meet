@@ -534,7 +534,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fangxinban.app;
+				PRODUCT_BUNDLE_IDENTIFIER = fangxinbanapp;
 				PRODUCT_NAME = "jitsi-meet";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -569,7 +569,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fangxinban.app;
+				PRODUCT_BUNDLE_IDENTIFIER = fangxinbanapp;
 				PRODUCT_NAME = "jitsi-meet";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -606,7 +606,7 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.fangxinban.app.broadcast;
+				PRODUCT_BUNDLE_IDENTIFIER = fangxinbanapp.broad;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -645,7 +645,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.fangxinban.app.broadcast;
+				PRODUCT_BUNDLE_IDENTIFIER = fangxinbanapp.broad;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
