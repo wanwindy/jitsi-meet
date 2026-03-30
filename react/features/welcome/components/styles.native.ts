@@ -14,7 +14,7 @@ const TEXT_COLOR = BaseTheme.palette.text01;
  * The styles of the React {@code Components} of the feature welcome including
  * {@code WelcomePage} and {@code BlankPage}.
  */
-export default {
+export default StyleSheet.create({
 
     blankPageText: {
         color: TEXT_COLOR,
@@ -487,7 +487,8 @@ export default {
     },
 
     joinMeetingInputContainer: {
-        marginBottom: 6
+        marginBottom: 6,
+        width: '100%'
     },
 
     joinMeetingInput: {
@@ -498,10 +499,14 @@ export default {
         color: '#143865',
         fontSize: 22,
         fontWeight: '700',
+        height: 56,
         letterSpacing: 1.4,
-        minHeight: 56,
         paddingHorizontal: 16,
-        textAlign: 'left'
+        paddingVertical: 14,
+        lineHeight: 28,
+        textAlign: 'left',
+        textAlignVertical: 'center',
+        width: '100%'
     },
 
     joinPanelActions: {
@@ -569,4 +574,4 @@ export default {
     joinMeetingButton: {
         marginTop: BaseTheme.spacing[2]
     }
-};
+});

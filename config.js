@@ -204,6 +204,16 @@ var config = {
     // be potentially unpleasant for other meeting participants.
     enableNoisyMicDetection: true,
 
+    // Keep microphone audio processing enabled explicitly so browser / native defaults
+    // don't regress into echo or self-voice feedback in calls.
+    constraints: {
+        audio: {
+            autoGainControl: true,
+            echoCancellation: true,
+            noiseSuppression: true,
+        },
+    },
+
     // Start the conference in audio only mode (no video is being received nor
     // sent).
     // startAudioOnly: false,
