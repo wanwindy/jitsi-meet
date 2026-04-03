@@ -123,12 +123,13 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print Entitlements:application-identifier" /tmp/broadcast_profile.plist
           /usr/libexec/PlistBuddy -c "Print Entitlements:com.apple.security.application-groups" /tmp/broadcast_profile.plist
 
-      - name: Force entitlements to expected App Group
+      - name: Force bundle IDs and App Group to expected values
         run: |
           set -euo pipefail
 
           APP_ENT="ios/app/app.entitlements"
-          EXT_ENT="ios/app/broadcast-extension/broadcast-extension.entitlements"
+          EXT_ENT="ios/app/broadcast-extension/extension.entitlements"
+          APP_INFO="ios/app/src/Info.plist"
 
           /usr/libexec/PlistBuddy -c "Delete :com.apple.security.application-groups" "$APP_ENT" || true
           /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups array" "$APP_ENT"
@@ -138,10 +139,16 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups array" "$EXT_ENT"
           /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups:0 string $APP_GROUP_ID" "$EXT_ENT"
 
+          /usr/libexec/PlistBuddy -c "Set :RTCAppGroupIdentifier $APP_GROUP_ID" "$APP_INFO"
+          /usr/libexec/PlistBuddy -c "Set :RTCScreenSharingExtension $BROADCAST_BUNDLE_ID" "$APP_INFO"
+
           echo "=== app.entitlements ==="
           cat "$APP_ENT"
           echo "=== broadcast-extension.entitlements ==="
           cat "$EXT_ENT"
+          echo "=== app Info.plist screen sharing values ==="
+          /usr/libexec/PlistBuddy -c "Print :RTCAppGroupIdentifier" "$APP_INFO"
+          /usr/libexec/PlistBuddy -c "Print :RTCScreenSharingExtension" "$APP_INFO"
 
       - name: Patch project signing in app project
         run: |
@@ -153,6 +160,8 @@ jobs:
 
           pbxproj_path = "ios/app/app.xcodeproj/project.pbxproj"
           team_id = os.environ["TEAM_ID"]
+          main_bundle_id = os.environ["MAIN_BUNDLE_ID"]
+          broadcast_bundle_id = os.environ["BROADCAST_BUNDLE_ID"]
           main_profile = os.environ["MAIN_PROFILE_NAME"]
           broadcast_profile = os.environ["BROADCAST_PROFILE_NAME"]
 
@@ -176,44 +185,58 @@ jobs:
 
               return re.findall(r'([0-9A-F]{24}) /\* [^*]+ \*/', match.group("body"))
 
-          config_profile_by_id = {
-              **{config_id: main_profile for config_id in get_target_config_ids(content, "JitsiMeet")},
-              **{config_id: broadcast_profile for config_id in get_target_config_ids(content, "JitsiMeetBroadcastExtension")},
+          config_settings_by_id = {
+              **{
+                  config_id: {
+                      "bundle_id": main_bundle_id,
+                      "profile": main_profile,
+                  }
+                  for config_id in get_target_config_ids(content, "JitsiMeet")
+              },
+              **{
+                  config_id: {
+                      "bundle_id": broadcast_bundle_id,
+                      "profile": broadcast_profile,
+                  }
+                  for config_id in get_target_config_ids(content, "JitsiMeetBroadcastExtension")
+              },
           }
 
           lines = content.splitlines()
           out = []
-          current_profile = None
+          current_settings = None
           current_config_depth = 0
 
           for line in lines:
               stripped = line.strip()
               block_match = re.match(r'^\s*([0-9A-F]{24}) /\* .* \*/ = \{$', line)
 
-              if current_profile is None and block_match:
-                  current_profile = config_profile_by_id.get(block_match.group(1))
+              if current_settings is None and block_match:
+                  current_settings = config_settings_by_id.get(block_match.group(1))
                   current_config_depth = 0
 
-              if current_profile and (
+              if current_settings and stripped.startswith("PRODUCT_BUNDLE_IDENTIFIER = "):
+                  indent = line[:len(line) - len(line.lstrip())]
+                  out.append(f'{indent}PRODUCT_BUNDLE_IDENTIFIER = {current_settings["bundle_id"]};')
+              elif current_settings and (
                   stripped.startswith("PROVISIONING_PROFILE = ")
                   or stripped.startswith("PROVISIONING_PROFILE_SPECIFIER = ")
               ):
                   current_config_depth += line.count("{") - line.count("}")
                   if current_config_depth == 0:
-                      current_profile = None
+                      current_settings = None
                   continue
-
-              if current_profile and stripped.startswith("DEVELOPMENT_TEAM = "):
+              elif current_settings and stripped.startswith("DEVELOPMENT_TEAM = "):
                   indent = line[:len(line) - len(line.lstrip())]
                   out.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
-                  out.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{current_profile}";')
+                  out.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{current_settings["profile"]}";')
               else:
                   out.append(line)
 
-              if current_profile:
+              if current_settings:
                   current_config_depth += line.count("{") - line.count("}")
                   if current_config_depth == 0:
-                      current_profile = None
+                      current_settings = None
 
           with open(pbxproj_path, "w", encoding="utf-8") as f:
               f.write("\n".join(out) + "\n")
@@ -228,16 +251,25 @@ jobs:
       - name: Inspect patched pbxproj
         run: |
           set -euo pipefail
-          grep -nE 'JitsiMeetBroadcastExtension|JitsiMeet |PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_ENTITLEMENTS|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY' ios/app/app.xcodeproj/project.pbxproj | sed -n '1,260p'
+          grep -nE 'JitsiMeetBroadcastExtension|JitsiMeet |PRODUCT_BUNDLE_IDENTIFIER|PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_ENTITLEMENTS|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY' ios/app/app.xcodeproj/project.pbxproj | sed -n '1,260p'
 
-      - name: Validate profile specifiers were written
+      - name: Validate signing identifiers were written
         run: |
           set -euo pipefail
+          echo "===== grep PRODUCT_BUNDLE_IDENTIFIER ====="
+          grep -n 'PRODUCT_BUNDLE_IDENTIFIER' ios/app/app.xcodeproj/project.pbxproj || true
           echo "===== grep PROVISIONING_PROFILE_SPECIFIER ====="
           grep -n 'PROVISIONING_PROFILE_SPECIFIER' ios/app/app.xcodeproj/project.pbxproj || true
 
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = ${MAIN_BUNDLE_ID};" ios/app/app.xcodeproj/project.pbxproj
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = ${BROADCAST_BUNDLE_ID};" ios/app/app.xcodeproj/project.pbxproj
           grep -q "PROVISIONING_PROFILE_SPECIFIER = \"${MAIN_PROFILE_NAME}\";" ios/app/app.xcodeproj/project.pbxproj
           grep -q "PROVISIONING_PROFILE_SPECIFIER = \"${BROADCAST_PROFILE_NAME}\";" ios/app/app.xcodeproj/project.pbxproj
+
+          /usr/libexec/PlistBuddy -c "Print :RTCAppGroupIdentifier" ios/app/src/Info.plist | grep -x "${APP_GROUP_ID}"
+          /usr/libexec/PlistBuddy -c "Print :RTCScreenSharingExtension" ios/app/src/Info.plist | grep -x "${BROADCAST_BUNDLE_ID}"
+          /usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups:0" ios/app/app.entitlements | grep -x "${APP_GROUP_ID}"
+          /usr/libexec/PlistBuddy -c "Print :com.apple.security.application-groups:0" ios/app/broadcast-extension/extension.entitlements | grep -x "${APP_GROUP_ID}"
 
       - name: Show build settings
         run: |
