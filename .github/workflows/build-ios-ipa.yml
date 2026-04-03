@@ -10,8 +10,8 @@ jobs:
     env:
       NODE_OPTIONS: "--max-old-space-size=6144"
       # --- 关键修改：务必确保这两个 ID 与你苹果后台申请的完全一致 ---
-      MAIN_BUNDLE_ID: "fangxinbanapp"
-      BROADCAST_BUNDLE_ID: "fangxinbanapp.broad"
+      MAIN_BUNDLE_ID: "com.fangxinban.meet"
+      BROADCAST_BUNDLE_ID: "com.fangxinban.meet.broad"
 
     steps:
       - name: Checkout
