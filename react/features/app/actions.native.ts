@@ -170,6 +170,10 @@ export function appNavigate(uri?: string, options: IReloadNowOptions = {}) {
         dispatch(createDesiredLocalTracks());
         dispatch(clearNotifications());
 
+        if (options.skipConnect) {
+            return;
+        }
+
         if (!options.hidePrejoin && isPrejoinPageEnabled(getState())) {
             if (isUnsafeRoomWarningEnabled(getState()) && isInsecureRoomName(room)) {
                 navigateRoot(screen.unsafeRoomWarning);

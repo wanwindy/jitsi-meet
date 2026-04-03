@@ -8,14 +8,17 @@ import {
     ViewStyle
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { connect } from 'react-redux';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { connect } from 'react-redux';
 
 import { appNavigate } from '../../app/actions.native';
 import { getName } from '../../app/functions.native';
 import { IReduxState } from '../../app/types';
-import { login } from '../../authentication/actions.native';
+import { getStoredLoginCredentials } from '../../authentication/functions';
 import type { MeetingEntryType } from '../../base/conference/reducer';
+import { connect as connectAction } from '../../base/connection/actions.native';
+import { toJid } from '../../base/connection/functions';
+import { translate } from '../../base/i18n/functions';
 import Icon from '../../base/icons/components/Icon';
 import {
     IconArrowRight,
@@ -24,9 +27,9 @@ import {
     IconUser,
     IconVideo
 } from '../../base/icons/svg';
-import { translate } from '../../base/i18n/functions';
 import Text from '../../base/react/components/native/Text';
 import Input from '../../base/ui/components/native/Input';
+import { navigateRoot } from '../../mobile/navigation/rootNavigationContainerRef';
 import { screen } from '../../mobile/navigation/routes';
 
 import {
@@ -39,6 +42,15 @@ import styles from './styles.native';
 const APP_ICON = require('../../../../images/app-icon.png');
 
 interface IProps extends AbstractProps {
+    _configHosts?: {
+        anonymousdomain?: string;
+        authdomain?: string;
+        domain?: string;
+        focus?: string;
+        muc?: string;
+        visitorFocus?: string;
+    };
+
     _jwt?: string;
 
     /**
@@ -215,11 +227,11 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      *
      * @private
      * @param {string} room - Room/meeting number.
+     * @param {MeetingEntryType} meetingEntryType - How the user entered the meeting flow.
      * @returns {void}
      */
-    _navigateToMeeting(room: string, triggerLogin = false, meetingEntryType?: MeetingEntryType) {
+    _navigateToMeeting(room: string, meetingEntryType?: MeetingEntryType) {
         const onAppNavigateSettled = () => {
-            triggerLogin && this.props.dispatch(login());
             this._mounted && this.setState({ joining: false });
         };
 
@@ -235,16 +247,56 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      * @returns {void}
      */
     _onCreateMeeting() {
-        const { _jwt } = this.props;
+        const { _configHosts, _jwt } = this.props;
 
         if (this.state.joining) {
+            return;
+        }
+
+        if (!_jwt) {
+            void getStoredLoginCredentials()
+                .then(credentials => {
+                    if (!this._mounted) {
+                        return;
+                    }
+
+                    if (!credentials) {
+                        this._openAccountPage();
+
+                        return;
+                    }
+
+                    const room = this._generateMeetingNumber();
+                    const jid = toJid(credentials.username, _configHosts || {});
+
+                    this.setState({
+                        joining: true,
+                        room
+                    });
+                    this.props.dispatch(appNavigate(room, {
+                        hidePrejoin: true,
+                        meetingEntryType: 'create',
+                        skipConnect: true
+                    }))
+                        .then(() => {
+                            this.props.dispatch(connectAction(jid, credentials.password));
+                            navigateRoot(screen.conference.root);
+                        })
+                        .catch(() => {
+                            this._mounted && this.setState({ joining: false });
+                        });
+                })
+                .catch(() => {
+                    this._mounted && this._openAccountPage();
+                });
+
             return;
         }
 
         const room = this._generateMeetingNumber();
 
         this.setState({ room });
-        this._navigateToMeeting(room, !_jwt, 'create');
+        this._navigateToMeeting(room, 'create');
     }
 
     /**
@@ -260,7 +312,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             return;
         }
 
-        this._navigateToMeeting(room, false, 'join');
+        this._navigateToMeeting(room, 'join');
         this.setState({
             isSettingsScreenFocused: false
         });
@@ -523,6 +575,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
 function _mapStateToProps(state: IReduxState) {
     return {
         ..._abstractMapStateToProps(state),
+        _configHosts: state['features/base/config'].hosts,
         _jwt: state['features/base/jwt'].jwt
     };
 }
