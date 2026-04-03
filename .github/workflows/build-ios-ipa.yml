@@ -143,11 +143,9 @@ jobs:
           echo "=== broadcast-extension.entitlements ==="
           cat "$EXT_ENT"
 
-      - name: Patch project signing by target name
+      - name: Patch project signing in app project
         run: |
           set -euo pipefail
-
-          PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
 
           python3 << 'PYEOF'
           import os
@@ -159,57 +157,48 @@ jobs:
           broadcast_profile = os.environ["BROADCAST_PROFILE_NAME"]
 
           with open(pbxproj_path, "r", encoding="utf-8") as f:
-              lines = f.read().splitlines()
+              content = f.read()
 
-          new_lines = []
-          current_target = None
+          # 统一手动签名
+          content = re.sub(r'CODE_SIGN_STYLE = Automatic;', 'CODE_SIGN_STYLE = Manual;', content)
+          content = re.sub(r'CODE_SIGN_IDENTITY = "Apple Development";', 'CODE_SIGN_IDENTITY = "Apple Distribution";', content)
+          content = re.sub(r'CODE_SIGN_IDENTITY = Apple Development;', 'CODE_SIGN_IDENTITY = "Apple Distribution";', content)
 
-          def skip_setting(s: str) -> bool:
-              keys = [
-                  "PROVISIONING_PROFILE = ",
-                  "PROVISIONING_PROFILE_SPECIFIER = ",
-              ]
-              return any(s.strip().startswith(k) for k in keys)
+          lines = content.splitlines()
+          out = []
+
+          in_jitsimeet_block = False
+          in_broadcast_block = False
 
           for line in lines:
               stripped = line.strip()
 
-              # track target-ish context by comments present in build config sections
-              if "/* JitsiMeet */" in line and "XCBuildConfiguration" in line:
-                  current_target = "app"
-              elif "/* JitsiMeetBroadcastExtension */" in line and "XCBuildConfiguration" in line:
-                  current_target = "extension"
-              elif "/* Begin XCBuildConfiguration section */" in line:
-                  current_target = None
+              # 进入不同 target/config 区块
+              if "JitsiMeetBroadcastExtension" in line:
+                  in_broadcast_block = True
+                  in_jitsimeet_block = False
+              elif "JitsiMeet" in line and "JitsiMeetBroadcastExtension" not in line:
+                  in_jitsimeet_block = True
+                  in_broadcast_block = False
 
-              if skip_setting(stripped):
-                  continue
-
-              # normalize signing style / identity only in app project
-              if stripped.startswith("CODE_SIGN_STYLE = "):
-                  indent = line[:len(line) - len(line.lstrip())]
-                  new_lines.append(f'{indent}CODE_SIGN_STYLE = Manual;')
-                  continue
-
-              if stripped.startswith("CODE_SIGN_IDENTITY = "):
-                  indent = line[:len(line) - len(line.lstrip())]
-                  new_lines.append(f'{indent}CODE_SIGN_IDENTITY = "Apple Distribution";')
+              # 清掉旧的 provisioning 配置，避免重复
+              if stripped.startswith("PROVISIONING_PROFILE = ") or stripped.startswith("PROVISIONING_PROFILE_SPECIFIER = "):
                   continue
 
               if stripped.startswith("DEVELOPMENT_TEAM = "):
                   indent = line[:len(line) - len(line.lstrip())]
-                  new_lines.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
+                  out.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
 
-                  if current_target == "app":
-                      new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{main_profile}";')
-                  elif current_target == "extension":
-                      new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{broadcast_profile}";')
+                  if in_broadcast_block:
+                      out.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{broadcast_profile}";')
+                  elif in_jitsimeet_block:
+                      out.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{main_profile}";')
                   continue
 
-              new_lines.append(line)
+              out.append(line)
 
           with open(pbxproj_path, "w", encoding="utf-8") as f:
-              f.write("\n".join(new_lines) + "\n")
+              f.write("\n".join(out) + "\n")
           PYEOF
 
       - name: Patch in-project entitlement update script
@@ -226,6 +215,9 @@ jobs:
       - name: Validate profile specifiers were written
         run: |
           set -euo pipefail
+          echo "===== grep PROVISIONING_PROFILE_SPECIFIER ====="
+          grep -n 'PROVISIONING_PROFILE_SPECIFIER' ios/app/app.xcodeproj/project.pbxproj || true
+
           grep -q "PROVISIONING_PROFILE_SPECIFIER = \"${MAIN_PROFILE_NAME}\";" ios/app/app.xcodeproj/project.pbxproj
           grep -q "PROVISIONING_PROFILE_SPECIFIER = \"${BROADCAST_PROFILE_NAME}\";" ios/app/app.xcodeproj/project.pbxproj
 
