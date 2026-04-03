@@ -143,7 +143,7 @@ jobs:
           echo "=== broadcast-extension.entitlements ==="
           cat "$EXT_ENT"
 
-      - name: Force manual signing in project
+      - name: Force manual signing in app project only
         run: |
           set -euo pipefail
           PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
@@ -157,7 +157,7 @@ jobs:
             -workspace ios/jitsi-meet.xcworkspace \
             -scheme JitsiMeet \
             -showBuildSettings | \
-            grep -E 'PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE|CODE_SIGN_ENTITLEMENTS|DEVELOPMENT_TEAM' || true
+            grep -E 'TARGETNAME|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE|CODE_SIGN_ENTITLEMENTS|DEVELOPMENT_TEAM' || true
 
       - name: Create ExportOptions.plist
         run: |
@@ -203,8 +203,6 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="$MAIN_PROFILE_NAME" \
-            PRODUCT_BUNDLE_IDENTIFIER="$MAIN_BUNDLE_ID" \
             COMPILER_INDEX_STORE_ENABLE=NO \
             2>&1 | tee "$GITHUB_WORKSPACE/archive.log"
 
@@ -221,9 +219,20 @@ jobs:
         if: always()
         run: |
           echo "===== archive errors ====="
-          grep -iE 'error:|BUILD FAILED|ARCHIVE FAILED|requires a provisioning profile' "$GITHUB_WORKSPACE/archive.log" 2>/dev/null || true
+          grep -iE 'error:|BUILD FAILED|ARCHIVE FAILED|requires a provisioning profile|does not support provisioning profiles|doesn.t match the entitlements' "$GITHUB_WORKSPACE/archive.log" 2>/dev/null || true
           echo "===== export errors ====="
           grep -iE 'error:|EXPORT FAILED' "$GITHUB_WORKSPACE/export.log" 2>/dev/null || true
+
+      - name: Upload archive log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs-${{ github.run_number }}
+          path: |
+            ${{ github.workspace }}/archive.log
+            ${{ github.workspace }}/export.log
+            ${{ github.workspace }}/pod_install.log
+            ${{ github.workspace }}/pod_repo_update.log
 
       - name: Upload IPA artifact
         if: success()
