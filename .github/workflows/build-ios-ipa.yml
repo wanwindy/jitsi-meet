@@ -9,17 +9,21 @@ jobs:
     timeout-minutes: 90
     env:
       NODE_OPTIONS: "--max-old-space-size=6144"
-      # --- 关键修改：务必确保这两个 ID 与你苹果后台申请的完全一致 ---
+
+      # App identifiers
       MAIN_BUNDLE_ID: "com.fangxinban.meet"
       BROADCAST_BUNDLE_ID: "com.fangxinban.meet.broad"
-      # --- 确保这个 Group ID 与你 Profile 里勾选的一致 ---
       APP_GROUP_ID: "group.com.fangxinban.meet"
+
+      # Provisioning profile names in Apple Developer
+      MAIN_PROFILE_NAME: "Fangxinban_Main_Store"
+      BROADCAST_PROFILE_NAME: "Fangxinban_Broad_Store"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node (from .nvmrc)
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
@@ -42,17 +46,20 @@ jobs:
         working-directory: ios
         run: |
           set -o pipefail
-          pod repo update 2>&1 | tee $GITHUB_WORKSPACE/pod_repo_update.log
-          pod install 2>&1 | tee $GITHUB_WORKSPACE/pod_install.log
+          pod repo update 2>&1 | tee "$GITHUB_WORKSPACE/pod_repo_update.log"
+          pod install 2>&1 | tee "$GITHUB_WORKSPACE/pod_install.log"
 
       - name: Auto-increment Build Number
         run: |
-          BUILD_NUMBER=${{ github.run_number }}
+          set -euo pipefail
+          BUILD_NUMBER="${{ github.run_number }}"
           echo "Setting Build Number to: $BUILD_NUMBER"
+
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/app/src/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/app/broadcast-extension/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/sdk/src/Info.plist
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
 
       - name: Install signing certificate and provisioning profiles
         env:
@@ -62,43 +69,95 @@ jobs:
           BROADCAST_PROVISION_PROFILE_BASE64: ${{ secrets.BROADCAST_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          APP_PP_PATH=$RUNNER_TEMP/app.mobileprovision
-          BROADCAST_PP_PATH=$RUNNER_TEMP/broadcast.mobileprovision
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          set -euo pipefail
 
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $APP_PP_PATH
-          echo -n "$BROADCAST_PROVISION_PROFILE_BASE64" | base64 --decode -o $BROADCAST_PP_PATH
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          APP_PP_PATH="$RUNNER_TEMP/app.mobileprovision"
+          BROADCAST_PP_PATH="$RUNNER_TEMP/broadcast.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
 
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$APP_PP_PATH"
+          echo -n "$BROADCAST_PROVISION_PROFILE_BASE64" | base64 --decode -o "$BROADCAST_PP_PATH"
 
-          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $APP_PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
-          cp $BROADCAST_PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
 
-          APP_PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $APP_PP_PATH))
-          BROADCAST_PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $BROADCAST_PP_PATH))
-          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /dev/stdin <<< $(/usr/bin/security cms -D -i $APP_PP_PATH))
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
 
-          echo "APP_PP_UUID=$APP_PP_UUID" >> $GITHUB_ENV
-          echo "BROADCAST_PP_UUID=$BROADCAST_PP_UUID" >> $GITHUB_ENV
-          echo "TEAM_ID=$TEAM_ID" >> $GITHUB_ENV
+          APP_PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(/usr/bin/security cms -D -i "$APP_PP_PATH")")
+          BROADCAST_PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(/usr/bin/security cms -D -i "$BROADCAST_PP_PATH")")
 
-      # ---- 强制注入新的 App Group ID 到权限声明文件 ----
-      - name: Force Update Entitlements
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /dev/stdin <<< "$(/usr/bin/security cms -D -i "$APP_PP_PATH")")
+          APP_PP_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" /dev/stdin <<< "$(/usr/bin/security cms -D -i "$APP_PP_PATH")")
+          BROADCAST_PP_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" /dev/stdin <<< "$(/usr/bin/security cms -D -i "$BROADCAST_PP_PATH")")
+
+          cp "$APP_PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$APP_PP_UUID.mobileprovision"
+          cp "$BROADCAST_PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$BROADCAST_PP_UUID.mobileprovision"
+
+          echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+          echo "APP_PP_UUID=$APP_PP_UUID" >> "$GITHUB_ENV"
+          echo "BROADCAST_PP_UUID=$BROADCAST_PP_UUID" >> "$GITHUB_ENV"
+          echo "APP_PP_NAME=$APP_PP_NAME" >> "$GITHUB_ENV"
+          echo "BROADCAST_PP_NAME=$BROADCAST_PP_NAME" >> "$GITHUB_ENV"
+
+      - name: Verify provisioning profiles
         run: |
-          echo "Updating Entitlements with Group: $APP_GROUP_ID"
-          # 主 App 的权限文件
-          sed -i '' "s/group.com.facebook.wda.integration/${APP_GROUP_ID}/g" ios/app/app.entitlements || true
-          # 插件的权限文件
-          sed -i '' "s/group.com.facebook.wda.integration/${APP_GROUP_ID}/g" ios/app/broadcast-extension/broadcast-extension.entitlements || true
+          set -euo pipefail
+
+          echo "=== App profile ==="
+          security cms -D -i "$HOME/Library/MobileDevice/Provisioning Profiles/$APP_PP_UUID.mobileprovision" > /tmp/app_profile.plist
+          /usr/libexec/PlistBuddy -c "Print Name" /tmp/app_profile.plist
+          /usr/libexec/PlistBuddy -c "Print Entitlements:application-identifier" /tmp/app_profile.plist
+          /usr/libexec/PlistBuddy -c "Print Entitlements:com.apple.security.application-groups" /tmp/app_profile.plist || true
+
+          echo "=== Broadcast profile ==="
+          security cms -D -i "$HOME/Library/MobileDevice/Provisioning Profiles/$BROADCAST_PP_UUID.mobileprovision" > /tmp/broadcast_profile.plist
+          /usr/libexec/PlistBuddy -c "Print Name" /tmp/broadcast_profile.plist
+          /usr/libexec/PlistBuddy -c "Print Entitlements:application-identifier" /tmp/broadcast_profile.plist
+          /usr/libexec/PlistBuddy -c "Print Entitlements:com.apple.security.application-groups" /tmp/broadcast_profile.plist || true
+
+      - name: Force entitlements to expected App Group
+        run: |
+          set -euo pipefail
+
+          APP_ENT="ios/app/app.entitlements"
+          EXT_ENT="ios/app/broadcast-extension/broadcast-extension.entitlements"
+
+          /usr/libexec/PlistBuddy -c "Delete :com.apple.security.application-groups" "$APP_ENT" || true
+          /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups array" "$APP_ENT"
+          /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups:0 string $APP_GROUP_ID" "$APP_ENT"
+
+          /usr/libexec/PlistBuddy -c "Delete :com.apple.security.application-groups" "$EXT_ENT" || true
+          /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups array" "$EXT_ENT"
+          /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups:0 string $APP_GROUP_ID" "$EXT_ENT"
+
+          echo "=== app.entitlements ==="
+          cat "$APP_ENT"
+          echo "=== broadcast-extension.entitlements ==="
+          cat "$EXT_ENT"
+
+      - name: Force manual signing in project
+        run: |
+          set -euo pipefail
+          PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
+
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' "$PBXPROJ"
+
+      - name: Show build settings
+        run: |
+          xcodebuild \
+            -workspace ios/jitsi-meet.xcworkspace \
+            -scheme JitsiMeet \
+            -showBuildSettings | \
+            grep -E 'PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE|CODE_SIGN_ENTITLEMENTS|DEVELOPMENT_TEAM' || true
 
       - name: Create ExportOptions.plist
         run: |
@@ -107,61 +166,29 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>teamID</key>
-              <string>${TEAM_ID}</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>${MAIN_BUNDLE_ID}</key>
-                  <string>${APP_PP_UUID}</string>
-                  <key>${BROADCAST_BUNDLE_ID}</key>
-                  <string>${BROADCAST_PP_UUID}</string>
-              </dict>
-              <key>compileBitcode</key>
-              <false/>
-              <key>stripSwiftSymbols</key>
-              <true/>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${MAIN_BUNDLE_ID}</key>
+              <string>${MAIN_PROFILE_NAME}</string>
+              <key>${BROADCAST_BUNDLE_ID}</key>
+              <string>${BROADCAST_PROFILE_NAME}</string>
+            </dict>
+            <key>compileBitcode</key>
+            <false/>
+            <key>stripSwiftSymbols</key>
+            <true/>
           </dict>
           </plist>
           EOF
 
-      - name: Set provisioning profiles in Xcode project
-        run: |
-          PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
-          sed -i '' "s/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g" "$PBXPROJ"
-          sed -i '' "s/CODE_SIGN_IDENTITY = \"Apple Development\"/CODE_SIGN_IDENTITY = \"Apple Distribution\"/g" "$PBXPROJ"
-
-          python3 << 'PYEOF'
-          import os
-          app_uuid = os.environ["APP_PP_UUID"]
-          broadcast_uuid = os.environ["BROADCAST_PP_UUID"]
-          main_id = os.environ["MAIN_BUNDLE_ID"]
-          broadcast_id = os.environ["BROADCAST_BUNDLE_ID"]
-          team_id = os.environ["TEAM_ID"]
-
-          with open("ios/app/app.xcodeproj/project.pbxproj", "r") as f:
-              content = f.read()
-
-          lines = content.split('\n')
-          new_lines = []
-          for line in lines:
-              new_lines.append(line)
-              stripped = line.strip()
-              if stripped == f'PRODUCT_BUNDLE_IDENTIFIER = {main_id};':
-                  indent = line[:len(line) - len(line.lstrip())]
-                  new_lines.append(f'{indent}PROVISIONING_PROFILE = "{app_uuid}";')
-                  new_lines.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
-              elif stripped == f'PRODUCT_BUNDLE_IDENTIFIER = {broadcast_id};':
-                  indent = line[:len(line) - len(line.lstrip())]
-                  new_lines.append(f'{indent}PROVISIONING_PROFILE = "{broadcast_uuid}";')
-                  new_lines.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
-
-          with open("ios/app/app.xcodeproj/project.pbxproj", "w") as f:
-              f.write('\n'.join(new_lines))
-          PYEOF
+          echo "===== ExportOptions.plist ====="
+          cat ios/ExportOptions.plist
 
       - name: Archive iOS app
         run: |
@@ -173,12 +200,13 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath ios/build/JitsiMeet.xcarchive \
-            COMPILER_INDEX_STORE_ENABLE=NO \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            CODE_SIGN_ALLOW_CONSTANT_SIGNING_ERRORS=YES \
-            2>&1 | tee $GITHUB_WORKSPACE/archive.log
+            PROVISIONING_PROFILE_SPECIFIER="$MAIN_PROFILE_NAME" \
+            PRODUCT_BUNDLE_IDENTIFIER="$MAIN_BUNDLE_ID" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee "$GITHUB_WORKSPACE/archive.log"
 
       - name: Export IPA
         run: |
@@ -187,12 +215,15 @@ jobs:
             -archivePath ios/build/JitsiMeet.xcarchive \
             -exportPath ios/build/ipa \
             -exportOptionsPlist ios/ExportOptions.plist \
-            2>&1 | tee $GITHUB_WORKSPACE/export.log
+            2>&1 | tee "$GITHUB_WORKSPACE/export.log"
 
-      - name: Dump logs (always)
+      - name: Dump logs
         if: always()
         run: |
-          grep -iE 'error:|BUILD FAILED|ARCHIVE FAILED' archive.log 2>/dev/null || true
+          echo "===== archive errors ====="
+          grep -iE 'error:|BUILD FAILED|ARCHIVE FAILED|requires a provisioning profile' "$GITHUB_WORKSPACE/archive.log" 2>/dev/null || true
+          echo "===== export errors ====="
+          grep -iE 'error:|EXPORT FAILED' "$GITHUB_WORKSPACE/export.log" 2>/dev/null || true
 
       - name: Upload IPA artifact
         if: success()
@@ -208,10 +239,13 @@ jobs:
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
         run: |
+          set -euo pipefail
           mkdir -p ~/.private_keys
           echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode -o ~/.private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
           IPA_FILE=$(find ios/build/ipa -name "*.ipa" -type f | head -1)
+
           xcrun altool --upload-app \
-            --type ios --file "$IPA_FILE" \
+            --type ios \
+            --file "$IPA_FILE" \
             --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
