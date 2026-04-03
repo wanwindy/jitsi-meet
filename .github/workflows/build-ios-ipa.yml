@@ -12,6 +12,8 @@ jobs:
       # --- 关键修改：务必确保这两个 ID 与你苹果后台申请的完全一致 ---
       MAIN_BUNDLE_ID: "com.fangxinban.meet"
       BROADCAST_BUNDLE_ID: "com.fangxinban.meet.broad"
+      # --- 确保这个 Group ID 与你 Profile 里勾选的一致 ---
+      APP_GROUP_ID: "group.com.fangxinban.meet"
 
     steps:
       - name: Checkout
@@ -43,20 +45,15 @@ jobs:
           pod repo update 2>&1 | tee $GITHUB_WORKSPACE/pod_repo_update.log
           pod install 2>&1 | tee $GITHUB_WORKSPACE/pod_install.log
 
-      # ---- Auto-increment Build Number ----
       - name: Auto-increment Build Number
         run: |
           BUILD_NUMBER=${{ github.run_number }}
           echo "Setting Build Number to: $BUILD_NUMBER"
-
-          # Update main app, broadcast extension and SDK Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/app/src/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/app/broadcast-extension/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/sdk/src/Info.plist
-
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
 
-      # ---- Signing Setup ----
       - name: Install signing certificate and provisioning profiles
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -86,7 +83,6 @@ jobs:
           cp $APP_PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
           cp $BROADCAST_PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-          # Extract UUIDs and Team ID
           APP_PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $APP_PP_PATH))
           BROADCAST_PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $BROADCAST_PP_PATH))
           TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /dev/stdin <<< $(/usr/bin/security cms -D -i $APP_PP_PATH))
@@ -95,7 +91,15 @@ jobs:
           echo "BROADCAST_PP_UUID=$BROADCAST_PP_UUID" >> $GITHUB_ENV
           echo "TEAM_ID=$TEAM_ID" >> $GITHUB_ENV
 
-      # ---- Create ExportOptions.plist ----
+      # ---- 强制注入新的 App Group ID 到权限声明文件 ----
+      - name: Force Update Entitlements
+        run: |
+          echo "Updating Entitlements with Group: $APP_GROUP_ID"
+          # 主 App 的权限文件
+          sed -i '' "s/group.com.facebook.wda.integration/${APP_GROUP_ID}/g" ios/app/app.entitlements || true
+          # 插件的权限文件
+          sed -i '' "s/group.com.facebook.wda.integration/${APP_GROUP_ID}/g" ios/app/broadcast-extension/broadcast-extension.entitlements || true
+
       - name: Create ExportOptions.plist
         run: |
           cat > ios/ExportOptions.plist << EOF
@@ -124,11 +128,9 @@ jobs:
           </plist>
           EOF
 
-      # ---- Inject provisioning profiles into Xcode project ----
       - name: Set provisioning profiles in Xcode project
         run: |
           PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
-          # 强制将代码签名改为 Manual 模式和发行证书
           sed -i '' "s/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g" "$PBXPROJ"
           sed -i '' "s/CODE_SIGN_IDENTITY = \"Apple Development\"/CODE_SIGN_IDENTITY = \"Apple Distribution\"/g" "$PBXPROJ"
 
@@ -138,6 +140,7 @@ jobs:
           broadcast_uuid = os.environ["BROADCAST_PP_UUID"]
           main_id = os.environ["MAIN_BUNDLE_ID"]
           broadcast_id = os.environ["BROADCAST_BUNDLE_ID"]
+          team_id = os.environ["TEAM_ID"]
 
           with open("ios/app/app.xcodeproj/project.pbxproj", "r") as f:
               content = f.read()
@@ -147,22 +150,19 @@ jobs:
           for line in lines:
               new_lines.append(line)
               stripped = line.strip()
-              # 精确匹配你的真实 Bundle ID 并注入 UUID
               if stripped == f'PRODUCT_BUNDLE_IDENTIFIER = {main_id};':
                   indent = line[:len(line) - len(line.lstrip())]
                   new_lines.append(f'{indent}PROVISIONING_PROFILE = "{app_uuid}";')
+                  new_lines.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
               elif stripped == f'PRODUCT_BUNDLE_IDENTIFIER = {broadcast_id};':
                   indent = line[:len(line) - len(line.lstrip())]
                   new_lines.append(f'{indent}PROVISIONING_PROFILE = "{broadcast_uuid}";')
+                  new_lines.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
 
           with open("ios/app/app.xcodeproj/project.pbxproj", "w") as f:
               f.write('\n'.join(new_lines))
-          
-          print(f"✅ Main App ({main_id}) injected with: {app_uuid}")
-          print(f"✅ Broadcast ({broadcast_id}) injected with: {broadcast_uuid}")
           PYEOF
 
-      # ---- Build & Archive ----
       - name: Archive iOS app
         run: |
           set -o pipefail
@@ -177,6 +177,7 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
+            CODE_SIGN_ALLOW_CONSTANT_SIGNING_ERRORS=YES \
             2>&1 | tee $GITHUB_WORKSPACE/archive.log
 
       - name: Export IPA
@@ -191,9 +192,7 @@ jobs:
       - name: Dump logs (always)
         if: always()
         run: |
-          echo "=== archive.log errors ==="
           grep -iE 'error:|BUILD FAILED|ARCHIVE FAILED' archive.log 2>/dev/null || true
-          ls -la ios/build/ipa/ 2>/dev/null || echo "No IPA output found"
 
       - name: Upload IPA artifact
         if: success()
@@ -202,7 +201,6 @@ jobs:
           name: fangxinban-ios-ipa-${{ env.BUILD_NUMBER }}
           path: ios/build/ipa/*.ipa
 
-      # ---- Upload to TestFlight ----
       - name: Upload to TestFlight
         if: success()
         env:
