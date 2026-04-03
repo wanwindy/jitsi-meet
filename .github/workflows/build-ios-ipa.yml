@@ -159,43 +159,61 @@ jobs:
           with open(pbxproj_path, "r", encoding="utf-8") as f:
               content = f.read()
 
-          # 统一手动签名
+          # Force manual signing for app and broadcast extension targets.
           content = re.sub(r'CODE_SIGN_STYLE = Automatic;', 'CODE_SIGN_STYLE = Manual;', content)
           content = re.sub(r'CODE_SIGN_IDENTITY = "Apple Development";', 'CODE_SIGN_IDENTITY = "Apple Distribution";', content)
           content = re.sub(r'CODE_SIGN_IDENTITY = Apple Development;', 'CODE_SIGN_IDENTITY = "Apple Distribution";', content)
 
+          def get_target_config_ids(text: str, target_name: str) -> list[str]:
+              pattern = (
+                  rf'[0-9A-F]{{24}} /\* Build configuration list for PBXNativeTarget "{re.escape(target_name)}" \*/ = \{{'
+                  rf'.*?buildConfigurations = \((?P<body>.*?)\);'
+              )
+              match = re.search(pattern, text, re.S)
+
+              if not match:
+                  raise RuntimeError(f"Unable to find XCConfigurationList for target: {target_name}")
+
+              return re.findall(r'([0-9A-F]{24}) /\* [^*]+ \*/', match.group("body"))
+
+          config_profile_by_id = {
+              **{config_id: main_profile for config_id in get_target_config_ids(content, "JitsiMeet")},
+              **{config_id: broadcast_profile for config_id in get_target_config_ids(content, "JitsiMeetBroadcastExtension")},
+          }
+
           lines = content.splitlines()
           out = []
-
-          in_jitsimeet_block = False
-          in_broadcast_block = False
+          current_profile = None
+          current_config_depth = 0
 
           for line in lines:
               stripped = line.strip()
+              block_match = re.match(r'^\s*([0-9A-F]{24}) /\* .* \*/ = \{$', line)
 
-              # 进入不同 target/config 区块
-              if "JitsiMeetBroadcastExtension" in line:
-                  in_broadcast_block = True
-                  in_jitsimeet_block = False
-              elif "JitsiMeet" in line and "JitsiMeetBroadcastExtension" not in line:
-                  in_jitsimeet_block = True
-                  in_broadcast_block = False
+              if current_profile is None and block_match:
+                  current_profile = config_profile_by_id.get(block_match.group(1))
+                  current_config_depth = 0
 
-              # 清掉旧的 provisioning 配置，避免重复
-              if stripped.startswith("PROVISIONING_PROFILE = ") or stripped.startswith("PROVISIONING_PROFILE_SPECIFIER = "):
+              if current_profile and (
+                  stripped.startswith("PROVISIONING_PROFILE = ")
+                  or stripped.startswith("PROVISIONING_PROFILE_SPECIFIER = ")
+              ):
+                  current_config_depth += line.count("{") - line.count("}")
+                  if current_config_depth == 0:
+                      current_profile = None
                   continue
 
-              if stripped.startswith("DEVELOPMENT_TEAM = "):
+              if current_profile and stripped.startswith("DEVELOPMENT_TEAM = "):
                   indent = line[:len(line) - len(line.lstrip())]
                   out.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
+                  out.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{current_profile}";')
+              else:
+                  out.append(line)
 
-                  if in_broadcast_block:
-                      out.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{broadcast_profile}";')
-                  elif in_jitsimeet_block:
-                      out.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{main_profile}";')
-                  continue
-
-              out.append(line)
+              if current_profile:
+                  current_config_depth += line.count("{") - line.count("}")
+                  if current_config_depth == 0:
+                      current_profile = None
 
           with open(pbxproj_path, "w", encoding="utf-8") as f:
               f.write("\n".join(out) + "\n")
