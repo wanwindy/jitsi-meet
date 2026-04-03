@@ -115,13 +115,13 @@ jobs:
           security cms -D -i "$HOME/Library/MobileDevice/Provisioning Profiles/$APP_PP_UUID.mobileprovision" > /tmp/app_profile.plist
           /usr/libexec/PlistBuddy -c "Print Name" /tmp/app_profile.plist
           /usr/libexec/PlistBuddy -c "Print Entitlements:application-identifier" /tmp/app_profile.plist
-          /usr/libexec/PlistBuddy -c "Print Entitlements:com.apple.security.application-groups" /tmp/app_profile.plist || true
+          /usr/libexec/PlistBuddy -c "Print Entitlements:com.apple.security.application-groups" /tmp/app_profile.plist
 
           echo "=== Broadcast profile ==="
           security cms -D -i "$HOME/Library/MobileDevice/Provisioning Profiles/$BROADCAST_PP_UUID.mobileprovision" > /tmp/broadcast_profile.plist
           /usr/libexec/PlistBuddy -c "Print Name" /tmp/broadcast_profile.plist
           /usr/libexec/PlistBuddy -c "Print Entitlements:application-identifier" /tmp/broadcast_profile.plist
-          /usr/libexec/PlistBuddy -c "Print Entitlements:com.apple.security.application-groups" /tmp/broadcast_profile.plist || true
+          /usr/libexec/PlistBuddy -c "Print Entitlements:com.apple.security.application-groups" /tmp/broadcast_profile.plist
 
       - name: Force entitlements to expected App Group
         run: |
@@ -143,72 +143,67 @@ jobs:
           echo "=== broadcast-extension.entitlements ==="
           cat "$EXT_ENT"
 
-      - name: Patch in-project entitlement update script
-        run: |
-          set -euo pipefail
-          PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
-          sed -i '' "s/group.com.facebook.wda.integration/${APP_GROUP_ID}/g" "$PBXPROJ" || true
-
-      - name: Force target-level signing in app project only
+      - name: Patch project signing by target name
         run: |
           set -euo pipefail
 
           PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
-
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PBXPROJ"
-          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' "$PBXPROJ"
 
           python3 << 'PYEOF'
           import os
           import re
 
           pbxproj_path = "ios/app/app.xcodeproj/project.pbxproj"
-          main_bundle_id = os.environ["MAIN_BUNDLE_ID"]
-          broadcast_bundle_id = os.environ["BROADCAST_BUNDLE_ID"]
           team_id = os.environ["TEAM_ID"]
           main_profile = os.environ["MAIN_PROFILE_NAME"]
           broadcast_profile = os.environ["BROADCAST_PROFILE_NAME"]
 
           with open(pbxproj_path, "r", encoding="utf-8") as f:
-              content = f.read()
+              lines = f.read().splitlines()
 
-          lines = content.splitlines()
           new_lines = []
-          current_bundle = None
+          current_target = None
 
-          def is_setting_line(s: str, key: str) -> bool:
-              return s.strip().startswith(f"{key} = ")
+          def skip_setting(s: str) -> bool:
+              keys = [
+                  "PROVISIONING_PROFILE = ",
+                  "PROVISIONING_PROFILE_SPECIFIER = ",
+              ]
+              return any(s.strip().startswith(k) for k in keys)
 
-          for i, line in enumerate(lines):
+          for line in lines:
               stripped = line.strip()
 
-              m = re.match(r"PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);", stripped)
-              if m:
-                  current_bundle = m.group(1)
-                  new_lines.append(line)
+              # track target-ish context by comments present in build config sections
+              if "/* JitsiMeet */" in line and "XCBuildConfiguration" in line:
+                  current_target = "app"
+              elif "/* JitsiMeetBroadcastExtension */" in line and "XCBuildConfiguration" in line:
+                  current_target = "extension"
+              elif "/* Begin XCBuildConfiguration section */" in line:
+                  current_target = None
 
-                  indent = line[:len(line) - len(line.lstrip())]
-
-                  if current_bundle == main_bundle_id:
-                      new_lines.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
-                      new_lines.append(f'{indent}CODE_SIGN_STYLE = Manual;')
-                      new_lines.append(f'{indent}CODE_SIGN_IDENTITY = "Apple Distribution";')
-                      new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{main_profile}";')
-                  elif current_bundle == broadcast_bundle_id:
-                      new_lines.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
-                      new_lines.append(f'{indent}CODE_SIGN_STYLE = Manual;')
-                      new_lines.append(f'{indent}CODE_SIGN_IDENTITY = "Apple Distribution";')
-                      new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{broadcast_profile}";')
+              if skip_setting(stripped):
                   continue
 
-              # 跳过旧的全局/重复 provisioning 设置，避免污染
-              if any(
-                  is_setting_line(stripped, key)
-                  for key in [
-                      "PROVISIONING_PROFILE",
-                      "PROVISIONING_PROFILE_SPECIFIER",
-                  ]
-              ):
+              # normalize signing style / identity only in app project
+              if stripped.startswith("CODE_SIGN_STYLE = "):
+                  indent = line[:len(line) - len(line.lstrip())]
+                  new_lines.append(f'{indent}CODE_SIGN_STYLE = Manual;')
+                  continue
+
+              if stripped.startswith("CODE_SIGN_IDENTITY = "):
+                  indent = line[:len(line) - len(line.lstrip())]
+                  new_lines.append(f'{indent}CODE_SIGN_IDENTITY = "Apple Distribution";')
+                  continue
+
+              if stripped.startswith("DEVELOPMENT_TEAM = "):
+                  indent = line[:len(line) - len(line.lstrip())]
+                  new_lines.append(f'{indent}DEVELOPMENT_TEAM = {team_id};')
+
+                  if current_target == "app":
+                      new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{main_profile}";')
+                  elif current_target == "extension":
+                      new_lines.append(f'{indent}PROVISIONING_PROFILE_SPECIFIER = "{broadcast_profile}";')
                   continue
 
               new_lines.append(line)
@@ -217,8 +212,26 @@ jobs:
               f.write("\n".join(new_lines) + "\n")
           PYEOF
 
+      - name: Patch in-project entitlement update script
+        run: |
+          set -euo pipefail
+          PBXPROJ="ios/app/app.xcodeproj/project.pbxproj"
+          sed -i '' "s/group.com.facebook.wda.integration/${APP_GROUP_ID}/g" "$PBXPROJ" || true
+
+      - name: Inspect patched pbxproj
+        run: |
+          set -euo pipefail
+          grep -nE 'JitsiMeetBroadcastExtension|JitsiMeet |PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_ENTITLEMENTS|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY' ios/app/app.xcodeproj/project.pbxproj | sed -n '1,260p'
+
+      - name: Validate profile specifiers were written
+        run: |
+          set -euo pipefail
+          grep -q "PROVISIONING_PROFILE_SPECIFIER = \"${MAIN_PROFILE_NAME}\";" ios/app/app.xcodeproj/project.pbxproj
+          grep -q "PROVISIONING_PROFILE_SPECIFIER = \"${BROADCAST_PROFILE_NAME}\";" ios/app/app.xcodeproj/project.pbxproj
+
       - name: Show build settings
         run: |
+          set -o pipefail
           xcodebuild \
             -workspace ios/jitsi-meet.xcworkspace \
             -scheme JitsiMeet \
