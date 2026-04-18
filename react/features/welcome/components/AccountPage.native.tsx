@@ -47,7 +47,6 @@ function AccountPage() {
     const [ password, setPassword ] = useState('');
     const [ storedUsername, setStoredUsername ] = useState('');
     const [ username, setUsername ] = useState('');
-    const [ editing, setEditing ] = useState(false);
 
     const { authLogin } = useSelector((state: IReduxState) => state['features/base/conference']);
     const jwtState = useSelector((state: IReduxState) => state['features/base/jwt']);
@@ -73,7 +72,6 @@ function AccountPage() {
 
         setStoredUsername(restoredUsername);
         setUsername(restoredUsername);
-        setEditing(!restoredUsername && !isServerLoggedIn);
     }, [ isServerLoggedIn ]);
 
     useFocusEffect(useCallback(() => {
@@ -97,7 +95,6 @@ function AccountPage() {
             await persistStoredLoginCredentials(trimmedUsername, password.trim());
             setStoredUsername(trimmedUsername);
             setPassword('');
-            setEditing(false);
             setFeedback('账号已保存，后续进入需要鉴权的会议时会自动使用该账号。');
         } finally {
             setLoading(false);
@@ -113,7 +110,6 @@ function AccountPage() {
             setStoredUsername('');
             setUsername('');
             setPassword('');
-            setEditing(true);
             await (dispatch as any)(disconnect(undefined, false));
             dispatch(setJWT(undefined));
             setFeedback('账号已退出。');
@@ -121,19 +117,6 @@ function AccountPage() {
             setLoading(false);
         }
     }, [ dispatch ]);
-
-    const onStartEdit = useCallback(() => {
-        setEditing(true);
-        setPassword('');
-        setFeedback('');
-    }, []);
-
-    const onCancelEdit = useCallback(() => {
-        setEditing(false);
-        setUsername(storedUsername);
-        setPassword('');
-        setFeedback('');
-    }, [ storedUsername ]);
 
     const renderActionButton = ({ disabled, onPress, title, variant }: IAccountButtonProps) => (
         <Pressable
@@ -222,68 +205,47 @@ function AccountPage() {
                     </Text>
                 </View>
 
-                {
-                    editing
-                        && <View style = { styles.formCard as StyleProp<ViewStyle> }>
-                            <Text style = { styles.formTitle }>
-                                { '账号登录' }
-                            </Text>
-                            <Text style = { styles.formHint }>
-                                { '保存账号后，后续进入需要身份认证的会议时会自动使用。' }
-                            </Text>
-                            <Input
-                                accessibilityLabel = { '账号输入' }
-                                autoCapitalize = { 'none' }
-                                customStyles = {{
-                                    container: styles.inputContainer,
-                                    input: styles.input
-                                }}
-                                onChange = { setUsername }
-                                placeholder = { '请输入账号' }
-                                textContentType = { 'username' }
-                                value = { username } />
-                            <Input
-                                accessibilityLabel = { '密码输入' }
-                                autoCapitalize = { 'none' }
-                                customStyles = {{
-                                    container: styles.inputContainer,
-                                    input: styles.input
-                                }}
-                                onChange = { setPassword }
-                                placeholder = { '请输入密码' }
-                                secureTextEntry = { true }
-                                textContentType = { 'password' }
-                                value = { password } />
-                            <View style = { styles.buttonRow as StyleProp<ViewStyle> }>
-                                {
-                                    Boolean(storedUsername)
-                                        && renderActionButton({
-                                            disabled: loading,
-                                            onPress: onCancelEdit,
-                                            title: '取消',
-                                            variant: 'secondary'
-                                        })
-                                }
-                                { renderActionButton({
-                                    disabled: loading,
-                                    onPress: onSaveAccount,
-                                    title: loading ? '处理中...' : '登录账号',
-                                    variant: 'primary'
-                                }) }
-                            </View>
-                        </View>
-                }
-
-                {
-                    !editing && <View style = { styles.buttonRow as StyleProp<ViewStyle> }>
+                <View style = { styles.formCard as StyleProp<ViewStyle> }>
+                    <Text style = { styles.formTitle }>
+                        { currentAccount ? '账号信息' : '账号登录' }
+                    </Text>
+                    <Text style = { styles.formHint }>
                         {
-                            !isServerLoggedIn && renderActionButton({
-                                disabled: loading,
-                                onPress: onStartEdit,
-                                title: currentAccount ? '切换账号' : '登录账号',
-                                variant: 'primary'
-                            })
+                            currentAccount
+                                ? '如需更换账号，可直接修改下方账号信息后重新保存。'
+                                : '保存账号后，后续进入需要身份认证的会议时会自动使用。'
                         }
+                    </Text>
+                    <Input
+                        accessibilityLabel = { '账号输入' }
+                        autoCapitalize = { 'none' }
+                        customStyles = {{
+                            container: styles.inputContainer,
+                            input: styles.input
+                        }}
+                        onChange = { setUsername }
+                        placeholder = { '请输入账号' }
+                        textContentType = { 'username' }
+                        value = { username } />
+                    <Input
+                        accessibilityLabel = { '密码输入' }
+                        autoCapitalize = { 'none' }
+                        customStyles = {{
+                            container: styles.inputContainer,
+                            input: styles.input
+                        }}
+                        onChange = { setPassword }
+                        placeholder = { '请输入密码' }
+                        secureTextEntry = { true }
+                        textContentType = { 'password' }
+                        value = { password } />
+                    <View style = { styles.buttonRow as StyleProp<ViewStyle> }>
+                        { renderActionButton({
+                            disabled: loading,
+                            onPress: onSaveAccount,
+                            title: loading ? '处理中...' : currentAccount ? '更新账号' : '登录账号',
+                            variant: 'primary'
+                        }) }
                         {
                             Boolean(currentAccount) && renderActionButton({
                                 disabled: loading,
@@ -293,7 +255,7 @@ function AccountPage() {
                             })
                         }
                     </View>
-                }
+                </View>
 
                 {
                     Boolean(feedback) && <View style = { styles.feedbackCard as StyleProp<ViewStyle> }>

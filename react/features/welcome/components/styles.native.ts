@@ -360,6 +360,12 @@ export default StyleSheet.create({
         paddingHorizontal: 6
     },
 
+    joinMeetingSection: {
+        marginTop: 18,
+        paddingHorizontal: 16,
+        paddingBottom: 8
+    },
+
     actionCard: {
         alignItems: 'center',
         backgroundColor: '#FFFFFF',

@@ -3,7 +3,8 @@ import BaseTheme from '../../../ui/components/BaseTheme.native';
 export default {
     inputContainer: {
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        width: '100%'
     },
 
     label: {
@@ -14,7 +15,8 @@ export default {
     },
 
     fieldContainer: {
-        position: 'relative'
+        position: 'relative',
+        width: '100%'
     },
 
     icon: {
@@ -31,9 +33,11 @@ export default {
         borderRadius: BaseTheme.shape.borderRadius,
         borderWidth: 2,
         color: BaseTheme.palette.text01,
+        minHeight: BaseTheme.spacing[7],
         paddingHorizontal: BaseTheme.spacing[3],
         height: BaseTheme.spacing[7],
-        lineHeight: 20
+        lineHeight: 20,
+        width: '100%'
     },
 
     inputDisabled: {

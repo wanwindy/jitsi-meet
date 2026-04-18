@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import Dialog from 'react-native-dialog';
+import { StyleSheet } from 'react-native';
 import { connect as reduxConnect } from 'react-redux';
 
 import { IReduxState, IStore } from '../../../app/types';
@@ -174,13 +175,17 @@ class LoginDialog extends Component<IProps, IState> {
                     autoCorrect = { false }
                     onChangeText = { this._onUsernameChange }
                     placeholder = { 'user@domain.com' }
+                    placeholderTextColor = { '#7B8CA0' }
                     spellCheck = { false }
+                    style = { styles.input }
                     value = { this.state.username } />
                 <Dialog.Input
                     autoCapitalize = { 'none' }
                     onChangeText = { this._onPasswordChange }
                     placeholder = { t('dialog.userPassword') }
+                    placeholderTextColor = { '#7B8CA0' }
                     secureTextEntry = { true }
+                    style = { styles.input }
                     value = { this.state.password } />
                 <Dialog.Description>
                     { this._renderMessage() }
@@ -339,3 +344,15 @@ function _mapStateToProps(state: IReduxState) {
 }
 
 export default translate(reduxConnect(_mapStateToProps)(LoginDialog));
+
+const styles = StyleSheet.create({
+    input: {
+        backgroundColor: '#F4F8FC',
+        borderColor: '#D5E2F0',
+        borderRadius: 14,
+        borderWidth: 1,
+        color: '#143865',
+        minHeight: 52,
+        paddingHorizontal: 14
+    }
+});

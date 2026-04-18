@@ -185,7 +185,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
     constructor(props: IProps) {
         super(props);
 
-        this.state.isSettingsScreenFocused = false;
+        this.state.isSettingsScreenFocused = true;
 
         this._onCreateMeeting = this._onCreateMeeting.bind(this);
         this._onJoinMeeting = this._onJoinMeeting.bind(this);
@@ -268,6 +268,9 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
 
                     const room = this._generateMeetingNumber();
                     const jid = toJid(credentials.username, _configHosts || {});
+                    const onCreateMeetingSettled = () => {
+                        this._mounted && this.setState({ joining: false });
+                    };
 
                     this.setState({
                         joining: true,
@@ -281,10 +284,8 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                         .then(() => {
                             this.props.dispatch(connectAction(jid, credentials.password));
                             navigateRoot(screen.conference.root);
-                        })
-                        .catch(() => {
-                            this._mounted && this.setState({ joining: false });
-                        });
+                        }, onCreateMeetingSettled)
+                        .then(onCreateMeetingSettled, onCreateMeetingSettled);
                 })
                 .catch(() => {
                     this._mounted && this._openAccountPage();
@@ -502,65 +503,61 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             </Text>
                         </Pressable>
                     </View>
-                </ScrollView>
-                {
-                    showJoinPanel
-                        && <View style = { styles.joinModalOverlay as StyleProp<ViewStyle> }>
-                            <Pressable
-                                onPress = { this._closeJoinPanel }
-                                style = { styles.joinModalBackdrop as StyleProp<ViewStyle> } />
-                            <View style = { styles.joinMeetingPanel as StyleProp<ViewStyle> }>
-                                <Text style = { styles.joinMeetingTitle }>
-                                    { '输入会议号' }
-                                </Text>
-                                <Text style = { styles.joinMeetingSubtitle }>
-                                    { '请输入会议号后加入会议' }
-                                </Text>
-                                <Input
-                                    accessibilityLabel = { '会议号输入' }
-                                    autoCapitalize = { 'none' }
-                                    autoFocus = { true }
-                                    clearable = { true }
-                                    customStyles = {{
-                                        container: styles.joinMeetingInputContainer,
-                                        input: styles.joinMeetingInput
-                                    }}
-                                    keyboardType = { 'number-pad' }
-                                    maxLength = { 12 }
-                                    onChange = { this._onMeetingNumberChange }
-                                    onSubmitEditing = { this._onJoinMeeting }
-                                    placeholder = { '请输入会议号' }
-                                    returnKeyType = { 'go' }
-                                    value = { this.state.room } />
-                                <View style = { styles.joinPanelActions as StyleProp<ViewStyle> }>
-                                    <Pressable
-                                        accessibilityLabel = { '取消' }
-                                        onPress = { this._closeJoinPanel }
-                                        style = { ({ pressed }) => [
-                                            styles.joinPanelCancelButton,
-                                            pressed && styles.joinPanelCancelButtonPressed
-                                        ] }>
-                                        <Text style = { styles.joinPanelCancelText }>
-                                            { '取消' }
-                                        </Text>
-                                    </Pressable>
-                                    <Pressable
-                                        accessibilityLabel = { '加入会议' }
-                                        disabled = { !canJoinMeeting }
-                                        onPress = { this._onJoinMeeting }
-                                        style = { ({ pressed }) => [
-                                                styles.joinPanelConfirmButton,
-                                                !canJoinMeeting && styles.joinPanelConfirmButtonDisabled,
-                                                pressed && canJoinMeeting && styles.joinPanelConfirmButtonPressed
+                    {
+                        showJoinPanel
+                            && <View style = { styles.joinMeetingSection as StyleProp<ViewStyle> }>
+                                <View style = { styles.joinMeetingPanel as StyleProp<ViewStyle> }>
+                                    <Text style = { styles.joinMeetingTitle }>
+                                        { '输入会议号' }
+                                    </Text>
+                                    <Text style = { styles.joinMeetingSubtitle }>
+                                        { '请输入会议号后加入会议' }
+                                    </Text>
+                                    <Input
+                                        accessibilityLabel = { '会议号输入' }
+                                        autoCapitalize = { 'none' }
+                                        clearable = { true }
+                                        customStyles = {{
+                                            container: styles.joinMeetingInputContainer,
+                                            input: styles.joinMeetingInput
+                                        }}
+                                        keyboardType = { 'number-pad' }
+                                        maxLength = { 12 }
+                                        onChange = { this._onMeetingNumberChange }
+                                        onSubmitEditing = { this._onJoinMeeting }
+                                        placeholder = { '请输入会议号' }
+                                        returnKeyType = { 'go' }
+                                        value = { this.state.room } />
+                                    <View style = { styles.joinPanelActions as StyleProp<ViewStyle> }>
+                                        <Pressable
+                                            accessibilityLabel = { '取消' }
+                                            onPress = { this._closeJoinPanel }
+                                            style = { ({ pressed }) => [
+                                                styles.joinPanelCancelButton,
+                                                pressed && styles.joinPanelCancelButtonPressed
                                             ] }>
-                                        <Text style = { styles.joinPanelConfirmText }>
-                                            { '加入会议' }
-                                        </Text>
-                                    </Pressable>
+                                            <Text style = { styles.joinPanelCancelText }>
+                                                { '取消' }
+                                            </Text>
+                                        </Pressable>
+                                        <Pressable
+                                            accessibilityLabel = { '加入会议' }
+                                            disabled = { !canJoinMeeting }
+                                            onPress = { this._onJoinMeeting }
+                                            style = { ({ pressed }) => [
+                                                    styles.joinPanelConfirmButton,
+                                                    !canJoinMeeting && styles.joinPanelConfirmButtonDisabled,
+                                                    pressed && canJoinMeeting && styles.joinPanelConfirmButtonPressed
+                                                ] }>
+                                            <Text style = { styles.joinPanelConfirmText }>
+                                                { '加入会议' }
+                                            </Text>
+                                        </Pressable>
+                                    </View>
                                 </View>
                             </View>
-                        </View>
-                }
+                    }
+                </ScrollView>
             </SafeAreaView>
         );
     }
