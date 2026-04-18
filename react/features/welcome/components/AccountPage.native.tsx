@@ -5,6 +5,7 @@ import {
     ScrollView,
     StyleProp,
     StyleSheet,
+    TextInput,
     View,
     ViewStyle
 } from 'react-native';
@@ -22,7 +23,6 @@ import {
 } from '../../base/icons/svg';
 import { setJWT } from '../../base/jwt/actions';
 import Text from '../../base/react/components/native/Text';
-import Input from '../../base/ui/components/native/Input';
 
 interface IAccountButtonProps {
     disabled?: boolean;
@@ -216,29 +216,35 @@ function AccountPage() {
                                 : '保存账号后，后续进入需要身份认证的会议时会自动使用。'
                         }
                     </Text>
-                    <Input
-                        accessibilityLabel = { '账号输入' }
-                        autoCapitalize = { 'none' }
-                        customStyles = {{
-                            container: styles.inputContainer,
-                            input: styles.input
-                        }}
-                        onChange = { setUsername }
-                        placeholder = { '请输入账号' }
-                        textContentType = { 'username' }
-                        value = { username } />
-                    <Input
-                        accessibilityLabel = { '密码输入' }
-                        autoCapitalize = { 'none' }
-                        customStyles = {{
-                            container: styles.inputContainer,
-                            input: styles.input
-                        }}
-                        onChange = { setPassword }
-                        placeholder = { '请输入密码' }
-                        secureTextEntry = { true }
-                        textContentType = { 'password' }
-                        value = { password } />
+                    <View style = { styles.inputContainer as StyleProp<ViewStyle> }>
+                        <TextInput
+                            accessibilityLabel = { '账号输入' }
+                            autoCapitalize = { 'none' }
+                            autoCorrect = { false }
+                            onChangeText = { setUsername }
+                            placeholder = { '请输入账号' }
+                            placeholderTextColor = { '#7B8CA0' }
+                            selectionColor = { '#1E56A0' }
+                            spellCheck = { false }
+                            style = { styles.input }
+                            textContentType = { 'username' }
+                            value = { username } />
+                    </View>
+                    <View style = { styles.inputContainer as StyleProp<ViewStyle> }>
+                        <TextInput
+                            accessibilityLabel = { '密码输入' }
+                            autoCapitalize = { 'none' }
+                            autoCorrect = { false }
+                            onChangeText = { setPassword }
+                            placeholder = { '请输入密码' }
+                            placeholderTextColor = { '#7B8CA0' }
+                            secureTextEntry = { true }
+                            selectionColor = { '#1E56A0' }
+                            spellCheck = { false }
+                            style = { styles.input }
+                            textContentType = { 'password' }
+                            value = { password } />
+                    </View>
                     <View style = { styles.buttonRow as StyleProp<ViewStyle> }>
                         { renderActionButton({
                             disabled: loading,
@@ -378,7 +384,8 @@ const styles = StyleSheet.create({
         marginTop: 8
     },
     inputContainer: {
-        marginTop: 14
+        marginTop: 14,
+        width: '100%'
     },
     input: {
         backgroundColor: '#F4F8FC',
@@ -386,8 +393,11 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         borderWidth: 1,
         color: '#143865',
+        fontSize: 16,
         minHeight: 54,
-        paddingHorizontal: 16
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        width: '100%'
     },
     buttonRow: {
         flexDirection: 'row',

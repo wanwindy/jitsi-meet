@@ -4,6 +4,7 @@ import {
     Pressable,
     ScrollView,
     StyleProp,
+    TextInput,
     View,
     ViewStyle
 } from 'react-native';
@@ -28,7 +29,6 @@ import {
     IconVideo
 } from '../../base/icons/svg';
 import Text from '../../base/react/components/native/Text';
-import Input from '../../base/ui/components/native/Input';
 import { navigateRoot } from '../../mobile/navigation/rootNavigationContainerRef';
 import { screen } from '../../mobile/navigation/routes';
 
@@ -282,7 +282,9 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                         skipConnect: true
                     }))
                         .then(() => {
-                            this.props.dispatch(connectAction(jid, credentials.password));
+                            return this.props.dispatch(connectAction(jid, credentials.password));
+                        })
+                        .then(() => {
                             navigateRoot(screen.conference.root);
                         }, onCreateMeetingSettled)
                         .then(onCreateMeetingSettled, onCreateMeetingSettled);
@@ -513,21 +515,23 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                     <Text style = { styles.joinMeetingSubtitle }>
                                         { '请输入会议号后加入会议' }
                                     </Text>
-                                    <Input
-                                        accessibilityLabel = { '会议号输入' }
-                                        autoCapitalize = { 'none' }
-                                        clearable = { true }
-                                        customStyles = {{
-                                            container: styles.joinMeetingInputContainer,
-                                            input: styles.joinMeetingInput
-                                        }}
-                                        keyboardType = { 'number-pad' }
-                                        maxLength = { 12 }
-                                        onChange = { this._onMeetingNumberChange }
-                                        onSubmitEditing = { this._onJoinMeeting }
-                                        placeholder = { '请输入会议号' }
-                                        returnKeyType = { 'go' }
-                                        value = { this.state.room } />
+                                    <View style = { styles.joinMeetingInputContainer as StyleProp<ViewStyle> }>
+                                        <TextInput
+                                            accessibilityLabel = { '会议号输入' }
+                                            autoCapitalize = { 'none' }
+                                            autoCorrect = { false }
+                                            keyboardType = { 'number-pad' }
+                                            maxLength = { 12 }
+                                            onChangeText = { this._onMeetingNumberChange }
+                                            onSubmitEditing = { this._onJoinMeeting }
+                                            placeholder = { '请输入会议号' }
+                                            placeholderTextColor = { '#7B8CA0' }
+                                            returnKeyType = { 'go' }
+                                            selectionColor = { '#1E56A0' }
+                                            spellCheck = { false }
+                                            style = { styles.joinMeetingInput }
+                                            value = { this.state.room } />
+                                    </View>
                                     <View style = { styles.joinPanelActions as StyleProp<ViewStyle> }>
                                         <Pressable
                                             accessibilityLabel = { '取消' }
