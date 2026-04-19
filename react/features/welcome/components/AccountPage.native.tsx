@@ -178,15 +178,18 @@ function AccountPage() {
     const statusDescription = !hydrated
         ? '正在初始化本机设备信息，请稍候。'
         : isLoggedIn
-            ? '当前设备已通过业务登录校验，可从首页进入会议入口。'
-            : '请先完成业务登录。首次登录时，后端会自动将当前设备绑定到该账号。';
+            ? '当前设备已通过主持人账号校验，可从首页创建会议。参会人仍可直接通过会议号加入。'
+            : '只有主持人创建会议时需要登录。首次登录时，后端会自动将当前设备绑定到该账号。';
     const currentBindingStatus = isLoggedIn && user?.boundDeviceId && deviceInfo?.deviceId === user.boundDeviceId
         ? '当前设备已绑定'
         : isLoggedIn
             ? '已登录成功'
             : '尚未绑定账号';
+    const pendingTitle = pendingNavigation?.meetingEntryType === 'create'
+        ? '登录后将继续创建会议'
+        : '登录后将继续进入会议';
     const formHint = isLoggedIn
-        ? '如需切换账号，请输入新的账号密码重新登录。退出登录只会清理本地登录态，不会解绑设备。'
+        ? '如需切换主持人账号，请输入新的账号密码重新登录。退出登录只会清理本地登录态，不会解绑设备。'
         : '';
 
     return (
@@ -248,7 +251,7 @@ function AccountPage() {
                 {
                     pendingNavigation && <View style = { styles.pendingCard as StyleProp<ViewStyle> }>
                         <Text style = { styles.pendingTitle }>
-                            { '登录后将继续进入会议' }
+                            { pendingTitle }
                         </Text>
                         <Text style = { styles.pendingText }>
                             { pendingNavigation.uri }
@@ -258,7 +261,7 @@ function AccountPage() {
 
                 <View style = { styles.formCard as StyleProp<ViewStyle> }>
                     <Text style = { styles.formTitle }>
-                        { isLoggedIn ? '切换账号' : '账号登录' }
+                        { isLoggedIn ? '切换主持人账号' : '主持人账号登录' }
                     </Text>
                     { Boolean(formHint) && <Text style = { styles.formHint }>
                         { formHint }

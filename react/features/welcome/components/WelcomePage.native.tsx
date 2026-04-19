@@ -286,12 +286,6 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             return;
         }
 
-        if (!this.props._businessAuthLoggedIn) {
-            this._queueMeetingEntry(room, 'join');
-
-            return;
-        }
-
         this._navigateToMeeting(room, 'join');
         this.setState({
             isSettingsScreenFocused: false
@@ -404,12 +398,12 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         const accountNoticeTitle = _businessAuthLoggedIn
             ? `欢迎回来，${_businessAuthDisplayName || '当前账号'}`
             : _businessAuthHydrated
-                ? '请先登录业务账号'
+                ? '主持人请先登录账号'
                 : '正在准备设备信息';
         const accountNoticeDescription = _businessAuthLoggedIn
-            ? '当前设备已完成业务校验，现在可以直接创建或加入会议。'
+            ? '当前设备已完成主持人身份校验，可以创建会议；参会人也可直接输入会议号加入。'
             : _businessAuthHydrated
-                ? '首次登录会自动绑定当前设备；换机或重装后若被拒绝，请联系管理员解绑。'
+                ? '创建会议前请先登录主持人账号。首次登录会自动绑定当前设备；参会人输入会议号可直接加入，无需登录。'
                 : 'App 正在初始化本机 deviceId，完成后可使用业务账号登录。';
 
         return (
@@ -490,14 +484,14 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             </View>
                         </View>
                         <Pressable
-                            accessibilityLabel = { _businessAuthLoggedIn ? '查看账号信息' : '登录业务账号' }
+                            accessibilityLabel = { _businessAuthLoggedIn ? '查看账号信息' : '登录主持人账号' }
                             onPress = { this._openAccountPage }
                             style = { ({ pressed }) => [
                                 styles.accountNoticeAction,
                                 pressed && styles.accountNoticeActionPressed
                             ] }>
                             <Text style = { styles.accountNoticeActionText }>
-                                { _businessAuthLoggedIn ? '查看账号' : '前往登录' }
+                                { _businessAuthLoggedIn ? '查看账号' : '主持人登录' }
                             </Text>
                         </Pressable>
                     </View>
@@ -516,7 +510,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             {
                                 !_businessAuthLoggedIn
                                     && <Text style = { styles.actionCardHint }>
-                                        { '登录后可用' }
+                                        { '主持人登录后可用' }
                                     </Text>
                             }
                         </Pressable>
@@ -531,12 +525,9 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             <Text style = { styles.actionCardTitle }>
                                 { '加入会议' }
                             </Text>
-                            {
-                                !_businessAuthLoggedIn
-                                    && <Text style = { styles.actionCardHint }>
-                                        { '登录后可用' }
-                                    </Text>
-                            }
+                            <Text style = { styles.actionCardHint }>
+                                { '输入会议号即可加入' }
+                            </Text>
                         </Pressable>
                     </View>
                     {
@@ -547,11 +538,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                         { '输入会议号' }
                                     </Text>
                                     <Text style = { styles.joinMeetingSubtitle }>
-                                        {
-                                            _businessAuthLoggedIn
-                                                ? '请输入会议号后加入会议'
-                                                : '请先输入会议号，登录成功后会自动继续加入'
-                                        }
+                                        { '参会人无需登录，输入会议号后即可加入会议' }
                                     </Text>
                                     <View style = { styles.joinMeetingInputContainer as StyleProp<ViewStyle> }>
                                         <TextInput
@@ -583,7 +570,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                             </Text>
                                         </Pressable>
                                         <Pressable
-                                            accessibilityLabel = { _businessAuthLoggedIn ? '加入会议' : '登录后继续' }
+                                            accessibilityLabel = { '加入会议' }
                                             disabled = { !canJoinMeeting }
                                             onPress = { this._onJoinMeeting }
                                             style = { ({ pressed }) => [
@@ -592,7 +579,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                                     pressed && canJoinMeeting && styles.joinPanelConfirmButtonPressed
                                                 ] }>
                                             <Text style = { styles.joinPanelConfirmText }>
-                                                { _businessAuthLoggedIn ? '加入会议' : '登录后继续' }
+                                                { '加入会议' }
                                             </Text>
                                         </Pressable>
                                     </View>
