@@ -1,5 +1,6 @@
+import dayjs from 'dayjs';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     Pressable,
     ScrollView,
@@ -12,16 +13,27 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 
+import { appNavigate } from '../../app/actions.native';
 import { IReduxState } from '../../app/types';
-import { clearStoredLoginCredentials, getStoredLoginCredentials, persistStoredLoginCredentials } from '../../authentication/functions';
-import { disconnect } from '../../base/connection/actions.native';
+import {
+    bootstrapBusinessAuth,
+    clearPendingBusinessAuthNavigation,
+    loginBusinessAccount,
+    logoutBusinessAccount
+} from '../../business-auth/actions.native';
+import {
+    getBusinessAuthDeviceInfo,
+    getBusinessAuthPendingNavigation,
+    getBusinessAuthUser,
+    isBusinessAuthHydrated,
+    isBusinessAuthLoggedIn
+} from '../../business-auth/functions';
 import Icon from '../../base/icons/components/Icon';
 import {
     IconArrowLeft,
     IconSecurityOn,
     IconUser
 } from '../../base/icons/svg';
-import { setJWT } from '../../base/jwt/actions';
 import Text from '../../base/react/components/native/Text';
 
 interface IAccountButtonProps {
@@ -31,91 +43,106 @@ interface IAccountButtonProps {
     variant: 'danger' | 'primary' | 'secondary';
 }
 
+function formatDateTime(value?: string) {
+    if (!value) {
+        return '暂无';
+    }
+
+    const formattedValue = dayjs(value);
+
+    return formattedValue.isValid() ? formattedValue.format('YYYY-MM-DD HH:mm') : value;
+}
+
+function renderInfoRow(label: string, value: string, compact = false) {
+    return (
+        <View
+            key = { label }
+            style = { styles.infoRow as StyleProp<ViewStyle> }>
+            <Text style = { styles.infoLabel }>
+                { label }
+            </Text>
+            <Text style = { compact ? styles.infoValueCompact : styles.infoValue }>
+                { value }
+            </Text>
+        </View>
+    );
+}
+
 /**
- * Lightweight account page for the welcome screen.
- *
- * It stores login credentials locally so meetings that require auth can reuse
- * them automatically, and it also clears persisted JWT/session information on logout.
+ * Business account page for the welcome screen.
  *
  * @returns {ReactElement}
  */
 function AccountPage() {
-    const dispatch = useDispatch();
+    const dispatch = useDispatch<any>();
     const navigation = useNavigation<any>();
-    const [ loading, setLoading ] = useState(false);
     const [ feedback, setFeedback ] = useState('');
     const [ password, setPassword ] = useState('');
-    const [ storedUsername, setStoredUsername ] = useState('');
     const [ username, setUsername ] = useState('');
 
-    const { authLogin } = useSelector((state: IReduxState) => state['features/base/conference']);
-    const jwtState = useSelector((state: IReduxState) => state['features/base/jwt']);
-
-    const isServerLoggedIn = Boolean(authLogin || jwtState.jwt);
-
-    const currentAccount = useMemo(() => {
-        if (authLogin) {
-            return authLogin;
-        }
-
-        if (jwtState.jwt) {
-            return jwtState.user?.name || jwtState.user?.id || storedUsername;
-        }
-
-        return storedUsername;
-    }, [ authLogin, jwtState.jwt, jwtState.user?.id, jwtState.user?.name, storedUsername ]);
-
-    const loadStoredCredentials = useCallback(async () => {
-        const credentials = await getStoredLoginCredentials();
-
-        const restoredUsername = credentials?.username ?? '';
-
-        setStoredUsername(restoredUsername);
-        setUsername(restoredUsername);
-    }, [ isServerLoggedIn ]);
+    const deviceInfo = useSelector(getBusinessAuthDeviceInfo);
+    const hydrated = useSelector(isBusinessAuthHydrated);
+    const isLoggedIn = useSelector(isBusinessAuthLoggedIn);
+    const pendingNavigation = useSelector(getBusinessAuthPendingNavigation);
+    const user = useSelector(getBusinessAuthUser);
+    const isSubmitting = useSelector((state: IReduxState) => state['features/business-auth'].isSubmitting);
 
     useFocusEffect(useCallback(() => {
-        setFeedback('');
-        void loadStoredCredentials();
-    }, [ loadStoredCredentials ]));
+        if (!hydrated) {
+            void dispatch(bootstrapBusinessAuth());
+        }
 
-    const onSaveAccount = useCallback(async () => {
+        if (user?.username) {
+            setUsername(user.username);
+        }
+    }, [ dispatch, hydrated, user?.username ]));
+
+    const onGoBack = useCallback(() => {
+        if (pendingNavigation) {
+            dispatch(clearPendingBusinessAuthNavigation());
+        }
+
+        navigation.goBack();
+    }, [ dispatch, navigation, pendingNavigation ]);
+
+    const onLogin = useCallback(async () => {
         const trimmedUsername = username.trim();
+        const trimmedPassword = password.trim();
 
-        if (!trimmedUsername || !password.trim()) {
+        if (!trimmedUsername || !trimmedPassword) {
             setFeedback('请输入账号和密码。');
 
             return;
         }
 
-        setLoading(true);
         setFeedback('');
 
         try {
-            await persistStoredLoginCredentials(trimmedUsername, password.trim());
-            setStoredUsername(trimmedUsername);
+            await dispatch(loginBusinessAccount(trimmedUsername, trimmedPassword));
             setPassword('');
-            setFeedback('账号已保存，后续进入需要鉴权的会议时会自动使用该账号。');
-        } finally {
-            setLoading(false);
+
+            if (pendingNavigation) {
+                const { uri, ...options } = pendingNavigation;
+
+                dispatch(clearPendingBusinessAuthNavigation());
+                await dispatch(appNavigate(uri, options));
+
+                return;
+            }
+
+            navigation.goBack();
+        } catch (error: any) {
+            setFeedback(error?.message || '网络异常，请稍后重试');
         }
-    }, [ password, username ]);
+    }, [ dispatch, navigation, password, pendingNavigation, username ]);
 
     const onLogout = useCallback(async () => {
-        setLoading(true);
         setFeedback('');
 
-        try {
-            await clearStoredLoginCredentials();
-            setStoredUsername('');
-            setUsername('');
-            setPassword('');
-            await (dispatch as any)(disconnect(undefined, false));
-            dispatch(setJWT(undefined));
-            setFeedback('账号已退出。');
-        } finally {
-            setLoading(false);
-        }
+        await dispatch(logoutBusinessAccount());
+        setPassword('');
+        setUsername('');
+        setFeedback('已退出登录，本机 deviceId 已保留，下次登录仍会沿用当前设备标识。');
     }, [ dispatch ]);
 
     const renderActionButton = ({ disabled, onPress, title, variant }: IAccountButtonProps) => (
@@ -142,17 +169,22 @@ function AccountPage() {
         </Pressable>
     );
 
-    const statusLabel = isServerLoggedIn
-        ? '已登录'
-        : currentAccount
-            ? '已保存账号'
+    const accountTitle = user?.nickname || user?.username || '未登录账号';
+    const statusLabel = !hydrated
+        ? '初始化中'
+        : isLoggedIn
+            ? '已登录'
             : '未登录';
-
-    const statusDescription = isServerLoggedIn
-        ? '当前会话已完成账号认证，可以直接继续使用。'
-        : currentAccount
-            ? '当前账号已保存在本机，后续进入需要鉴权的会议时会自动使用。'
-            : '登录账号后，创建或加入需要鉴权的会议时会自动带上该账号。';
+    const statusDescription = !hydrated
+        ? '正在初始化本机设备信息，请稍候。'
+        : isLoggedIn
+            ? '当前设备已通过业务登录校验，可从首页进入会议入口。'
+            : '请先完成业务登录。首次登录时，后端会自动将当前设备绑定到该账号。';
+    const currentBindingStatus = isLoggedIn && user?.boundDeviceId && deviceInfo?.deviceId === user.boundDeviceId
+        ? '当前设备已绑定'
+        : isLoggedIn
+            ? '已登录成功'
+            : '尚未绑定账号';
 
     return (
         <SafeAreaView
@@ -161,7 +193,7 @@ function AccountPage() {
             <View style = { styles.header as StyleProp<ViewStyle> }>
                 <Pressable
                     accessibilityLabel = { '返回首页' }
-                    onPress = { () => navigation.goBack() }
+                    onPress = { onGoBack }
                     style = { ({ pressed }) => [
                         styles.headerButton,
                         pressed && styles.headerButtonPressed
@@ -189,7 +221,7 @@ function AccountPage() {
                             src = { IconUser } />
                     </View>
                     <Text style = { styles.accountTitle }>
-                        { currentAccount || '未登录账号' }
+                        { accountTitle }
                     </Text>
                     <View style = { styles.statusPill as StyleProp<ViewStyle> }>
                         <Icon
@@ -203,17 +235,33 @@ function AccountPage() {
                     <Text style = { styles.accountDescription }>
                         { statusDescription }
                     </Text>
+                    <View style = { styles.bindingPill as StyleProp<ViewStyle> }>
+                        <Text style = { styles.bindingPillText }>
+                            { currentBindingStatus }
+                        </Text>
+                    </View>
                 </View>
+
+                {
+                    pendingNavigation && <View style = { styles.pendingCard as StyleProp<ViewStyle> }>
+                        <Text style = { styles.pendingTitle }>
+                            { '登录后将继续进入会议' }
+                        </Text>
+                        <Text style = { styles.pendingText }>
+                            { pendingNavigation.uri }
+                        </Text>
+                    </View>
+                }
 
                 <View style = { styles.formCard as StyleProp<ViewStyle> }>
                     <Text style = { styles.formTitle }>
-                        { currentAccount ? '账号信息' : '账号登录' }
+                        { isLoggedIn ? '切换账号' : '账号登录' }
                     </Text>
                     <Text style = { styles.formHint }>
                         {
-                            currentAccount
-                                ? '如需更换账号，可直接修改下方账号信息后重新保存。'
-                                : '保存账号后，后续进入需要身份认证的会议时会自动使用。'
+                            isLoggedIn
+                                ? '如需切换账号，请输入新的账号密码重新登录。退出登录只会清理本地登录态，不会解绑设备。'
+                                : '登录接口会自动上送 deviceId、平台、设备名称和 App 版本。'
                         }
                     </Text>
                     <View style = { styles.inputContainer as StyleProp<ViewStyle> }>
@@ -247,21 +295,45 @@ function AccountPage() {
                     </View>
                     <View style = { styles.buttonRow as StyleProp<ViewStyle> }>
                         { renderActionButton({
-                            disabled: loading,
-                            onPress: onSaveAccount,
-                            title: loading ? '处理中...' : currentAccount ? '更新账号' : '登录账号',
+                            disabled: isSubmitting,
+                            onPress: onLogin,
+                            title: isSubmitting ? '登录中...' : isLoggedIn ? '重新登录' : '登录账号',
                             variant: 'primary'
                         }) }
                         {
-                            Boolean(currentAccount) && renderActionButton({
-                                disabled: loading,
+                            isLoggedIn && renderActionButton({
+                                disabled: isSubmitting,
                                 onPress: onLogout,
-                                title: loading ? '处理中...' : '退出账号',
+                                title: isSubmitting ? '处理中...' : '退出登录',
                                 variant: 'danger'
                             })
                         }
                     </View>
                 </View>
+
+                <View style = { styles.infoCard as StyleProp<ViewStyle> }>
+                    <Text style = { styles.infoCardTitle }>
+                        { '当前设备信息' }
+                    </Text>
+                    { renderInfoRow('设备名称', deviceInfo?.deviceName || '读取中...') }
+                    { renderInfoRow('平台', deviceInfo?.platform || '读取中...') }
+                    { renderInfoRow('App 版本', deviceInfo?.appVersion || '读取中...') }
+                    { renderInfoRow('deviceId', deviceInfo?.deviceId || '生成中...', true) }
+                </View>
+
+                {
+                    isLoggedIn && <View style = { styles.infoCard as StyleProp<ViewStyle> }>
+                        <Text style = { styles.infoCardTitle }>
+                            { '绑定与登录信息' }
+                        </Text>
+                        { renderInfoRow('当前账号', user?.username || '暂无') }
+                        { renderInfoRow('昵称', user?.nickname || '暂无') }
+                        { renderInfoRow('绑定设备', user?.deviceName || '暂无') }
+                        { renderInfoRow('绑定平台', user?.devicePlatform || '暂无') }
+                        { renderInfoRow('绑定时间', formatDateTime(user?.deviceBoundAt)) }
+                        { renderInfoRow('最近登录', formatDateTime(user?.lastLoginAt)) }
+                    </View>
+                }
 
                 {
                     Boolean(feedback) && <View style = { styles.feedbackCard as StyleProp<ViewStyle> }>
@@ -365,6 +437,38 @@ const styles = StyleSheet.create({
         marginTop: 14,
         textAlign: 'center'
     },
+    bindingPill: {
+        backgroundColor: '#F4F8FC',
+        borderRadius: 999,
+        marginTop: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 8
+    },
+    bindingPillText: {
+        color: '#45627D',
+        fontSize: 12,
+        fontWeight: '700'
+    },
+    pendingCard: {
+        backgroundColor: '#FFF8E8',
+        borderColor: '#F3D8A4',
+        borderRadius: 22,
+        borderWidth: 1,
+        marginTop: 16,
+        paddingHorizontal: 18,
+        paddingVertical: 16
+    },
+    pendingTitle: {
+        color: '#8E5A0B',
+        fontSize: 14,
+        fontWeight: '800'
+    },
+    pendingText: {
+        color: '#9A6A21',
+        fontSize: 13,
+        lineHeight: 20,
+        marginTop: 8
+    },
     formCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 28,
@@ -448,6 +552,41 @@ const styles = StyleSheet.create({
     },
     disabledActionButtonText: {
         opacity: 0.72
+    },
+    infoCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        marginTop: 16,
+        paddingHorizontal: 18,
+        paddingVertical: 18
+    },
+    infoCardTitle: {
+        color: '#143865',
+        fontSize: 16,
+        fontWeight: '800',
+        marginBottom: 8
+    },
+    infoRow: {
+        borderBottomColor: '#E9EFF6',
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingVertical: 12
+    },
+    infoLabel: {
+        color: '#68809B',
+        fontSize: 12,
+        fontWeight: '700'
+    },
+    infoValue: {
+        color: '#173E6D',
+        fontSize: 15,
+        lineHeight: 22,
+        marginTop: 6
+    },
+    infoValueCompact: {
+        color: '#173E6D',
+        fontSize: 13,
+        lineHeight: 20,
+        marginTop: 6
     },
     feedbackCard: {
         backgroundColor: '#ECF5FF',

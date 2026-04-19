@@ -285,6 +285,10 @@ export default StyleSheet.create({
         width: 38
     },
 
+    topBarActionButtonActive: {
+        backgroundColor: '#1E56A0'
+    },
+
     topBarActionButtonPressed: {
         opacity: 0.84
     },
@@ -351,6 +355,80 @@ export default StyleSheet.create({
         fontSize: 13,
         fontWeight: '700',
         marginLeft: 8
+    },
+
+    accountNoticeCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        marginHorizontal: 16,
+        marginTop: 18,
+        paddingHorizontal: 18,
+        paddingVertical: 18,
+        shadowColor: '#143865',
+        shadowOffset: {
+            width: 0,
+            height: 8
+        },
+        shadowOpacity: 0.07,
+        shadowRadius: 18,
+        elevation: 3
+    },
+
+    accountNoticeCardWarning: {
+        backgroundColor: '#FFFDF8'
+    },
+
+    accountNoticeHeader: {
+        alignItems: 'flex-start',
+        flexDirection: 'row'
+    },
+
+    accountNoticeIconShell: {
+        alignItems: 'center',
+        backgroundColor: '#EEF5FF',
+        borderRadius: 16,
+        height: 32,
+        justifyContent: 'center',
+        marginRight: 12,
+        width: 32
+    },
+
+    accountNoticeBody: {
+        flex: 1
+    },
+
+    accountNoticeTitle: {
+        color: '#143865',
+        fontSize: 16,
+        fontWeight: '800',
+        lineHeight: 22
+    },
+
+    accountNoticeText: {
+        color: '#5E748B',
+        fontSize: 13,
+        lineHeight: 20,
+        marginTop: 6
+    },
+
+    accountNoticeAction: {
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        backgroundColor: '#1E56A0',
+        borderRadius: 14,
+        marginTop: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 10
+    },
+
+    accountNoticeActionPressed: {
+        backgroundColor: '#174784'
+    },
+
+    accountNoticeActionText: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontWeight: '800'
     },
 
     actionCardsRow: {
@@ -446,6 +524,13 @@ export default StyleSheet.create({
         fontSize: 18,
         fontWeight: '800',
         lineHeight: 26
+    },
+
+    actionCardHint: {
+        color: '#7489A1',
+        fontSize: 12,
+        fontWeight: '700',
+        marginTop: 10
     },
 
     joinModalOverlay: {

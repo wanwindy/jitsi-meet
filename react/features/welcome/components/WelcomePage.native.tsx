@@ -15,10 +15,9 @@ import { connect } from 'react-redux';
 import { appNavigate } from '../../app/actions.native';
 import { getName } from '../../app/functions.native';
 import { IReduxState } from '../../app/types';
-import { getStoredLoginCredentials } from '../../authentication/functions';
+import { setPendingBusinessAuthNavigation } from '../../business-auth/actions.native';
+import { getBusinessAuthDisplayName } from '../../business-auth/functions';
 import type { MeetingEntryType } from '../../base/conference/reducer';
-import { connect as connectAction } from '../../base/connection/actions.native';
-import { toJid } from '../../base/connection/functions';
 import { translate } from '../../base/i18n/functions';
 import Icon from '../../base/icons/components/Icon';
 import {
@@ -29,7 +28,6 @@ import {
     IconVideo
 } from '../../base/icons/svg';
 import Text from '../../base/react/components/native/Text';
-import { navigateRoot } from '../../mobile/navigation/rootNavigationContainerRef';
 import { screen } from '../../mobile/navigation/routes';
 
 import {
@@ -42,16 +40,9 @@ import styles from './styles.native';
 const APP_ICON = require('../../../../images/app-icon.png');
 
 interface IProps extends AbstractProps {
-    _configHosts?: {
-        anonymousdomain?: string;
-        authdomain?: string;
-        domain?: string;
-        focus?: string;
-        muc?: string;
-        visitorFocus?: string;
-    };
-
-    _jwt?: string;
+    _businessAuthDisplayName: string;
+    _businessAuthHydrated: boolean;
+    _businessAuthLoggedIn: boolean;
 
     /**
      * Default prop for navigating between screen components(React Navigation).
@@ -223,6 +214,25 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
     }
 
     /**
+     * Stores the requested meeting intent and redirects the user to business login.
+     *
+     * @private
+     * @param {string} room - Meeting number.
+     * @param {MeetingEntryType} meetingEntryType - The intended entry type.
+     * @returns {void}
+     */
+    _queueMeetingEntry(room: string, meetingEntryType: MeetingEntryType) {
+        this.props.dispatch(setPendingBusinessAuthNavigation({
+            meetingEntryType,
+            uri: room
+        }));
+        this.setState({
+            isSettingsScreenFocused: false
+        });
+        this._openAccountPage();
+    }
+
+    /**
      * Navigates to a meeting room.
      *
      * @private
@@ -247,56 +257,17 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      * @returns {void}
      */
     _onCreateMeeting() {
-        const { _configHosts, _jwt } = this.props;
-
         if (this.state.joining) {
             return;
         }
 
-        if (!_jwt) {
-            void getStoredLoginCredentials()
-                .then(credentials => {
-                    if (!this._mounted) {
-                        return;
-                    }
+        const room = this._generateMeetingNumber();
 
-                    if (!credentials) {
-                        this._openAccountPage();
-
-                        return;
-                    }
-
-                    const room = this._generateMeetingNumber();
-                    const jid = toJid(credentials.username, _configHosts || {});
-                    const onCreateMeetingSettled = () => {
-                        this._mounted && this.setState({ joining: false });
-                    };
-
-                    this.setState({
-                        joining: true,
-                        room
-                    });
-                    this.props.dispatch(appNavigate(room, {
-                        hidePrejoin: true,
-                        meetingEntryType: 'create',
-                        skipConnect: true
-                    }))
-                        .then(() => {
-                            return this.props.dispatch(connectAction(jid, credentials.password));
-                        })
-                        .then(() => {
-                            navigateRoot(screen.conference.root);
-                        }, onCreateMeetingSettled)
-                        .then(onCreateMeetingSettled, onCreateMeetingSettled);
-                })
-                .catch(() => {
-                    this._mounted && this._openAccountPage();
-                });
+        if (!this.props._businessAuthLoggedIn) {
+            this._queueMeetingEntry(room, 'create');
 
             return;
         }
-
-        const room = this._generateMeetingNumber();
 
         this.setState({ room });
         this._navigateToMeeting(room, 'create');
@@ -312,6 +283,12 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         const room = this.state.room;
 
         if (!room || this.state.joining) {
+            return;
+        }
+
+        if (!this.props._businessAuthLoggedIn) {
+            this._queueMeetingEntry(room, 'join');
+
             return;
         }
 
@@ -422,6 +399,18 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
     override render() {
         const canJoinMeeting = Boolean(this.state.room) && !this.state.joining;
         const showJoinPanel = Boolean(this.state.isSettingsScreenFocused);
+        const { _businessAuthDisplayName, _businessAuthHydrated, _businessAuthLoggedIn } = this.props;
+
+        const accountNoticeTitle = _businessAuthLoggedIn
+            ? `欢迎回来，${_businessAuthDisplayName || '当前账号'}`
+            : _businessAuthHydrated
+                ? '请先登录业务账号'
+                : '正在准备设备信息';
+        const accountNoticeDescription = _businessAuthLoggedIn
+            ? '当前设备已完成业务校验，现在可以直接创建或加入会议。'
+            : _businessAuthHydrated
+                ? '首次登录会自动绑定当前设备；换机或重装后若被拒绝，请联系管理员解绑。'
+                : 'App 正在初始化本机 deviceId，完成后可使用业务账号登录。';
 
         return (
             <SafeAreaView
@@ -448,10 +437,11 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                 onPress = { this._openAccountPage }
                                 style = { ({ pressed }) => [
                                     styles.topBarActionButton,
+                                    _businessAuthLoggedIn && styles.topBarActionButtonActive,
                                     pressed && styles.topBarActionButtonPressed
                                 ] }>
                                 <Icon
-                                    color = '#1E56A0'
+                                    color = { _businessAuthLoggedIn ? '#FFFFFF' : '#1E56A0' }
                                     size = { 18 }
                                     src = { IconUser } />
                             </Pressable>
@@ -479,6 +469,38 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             </View>
                         </View>
                     </View>
+                    <View style = { [
+                        styles.accountNoticeCard,
+                        !_businessAuthLoggedIn && styles.accountNoticeCardWarning
+                    ] as StyleProp<ViewStyle> }>
+                        <View style = { styles.accountNoticeHeader as StyleProp<ViewStyle> }>
+                            <View style = { styles.accountNoticeIconShell as StyleProp<ViewStyle> }>
+                                <Icon
+                                    color = { _businessAuthLoggedIn ? '#1E56A0' : '#C97911' }
+                                    size = { 18 }
+                                    src = { IconSecurityOn } />
+                            </View>
+                            <View style = { styles.accountNoticeBody as StyleProp<ViewStyle> }>
+                                <Text style = { styles.accountNoticeTitle }>
+                                    { accountNoticeTitle }
+                                </Text>
+                                <Text style = { styles.accountNoticeText }>
+                                    { accountNoticeDescription }
+                                </Text>
+                            </View>
+                        </View>
+                        <Pressable
+                            accessibilityLabel = { _businessAuthLoggedIn ? '查看账号信息' : '登录业务账号' }
+                            onPress = { this._openAccountPage }
+                            style = { ({ pressed }) => [
+                                styles.accountNoticeAction,
+                                pressed && styles.accountNoticeActionPressed
+                            ] }>
+                            <Text style = { styles.accountNoticeActionText }>
+                                { _businessAuthLoggedIn ? '查看账号' : '前往登录' }
+                            </Text>
+                        </Pressable>
+                    </View>
                     <View style = { styles.actionCardsRow as StyleProp<ViewStyle> }>
                         <Pressable
                             accessibilityLabel = { '创建会议' }
@@ -491,6 +513,12 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             <Text style = { styles.actionCardTitle }>
                                 { '创建会议' }
                             </Text>
+                            {
+                                !_businessAuthLoggedIn
+                                    && <Text style = { styles.actionCardHint }>
+                                        { '登录后可用' }
+                                    </Text>
+                            }
                         </Pressable>
                         <Pressable
                             accessibilityLabel = { '加入会议' }
@@ -503,6 +531,12 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             <Text style = { styles.actionCardTitle }>
                                 { '加入会议' }
                             </Text>
+                            {
+                                !_businessAuthLoggedIn
+                                    && <Text style = { styles.actionCardHint }>
+                                        { '登录后可用' }
+                                    </Text>
+                            }
                         </Pressable>
                     </View>
                     {
@@ -513,7 +547,11 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                         { '输入会议号' }
                                     </Text>
                                     <Text style = { styles.joinMeetingSubtitle }>
-                                        { '请输入会议号后加入会议' }
+                                        {
+                                            _businessAuthLoggedIn
+                                                ? '请输入会议号后加入会议'
+                                                : '请先输入会议号，登录成功后会自动继续加入'
+                                        }
                                     </Text>
                                     <View style = { styles.joinMeetingInputContainer as StyleProp<ViewStyle> }>
                                         <TextInput
@@ -545,7 +583,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                             </Text>
                                         </Pressable>
                                         <Pressable
-                                            accessibilityLabel = { '加入会议' }
+                                            accessibilityLabel = { _businessAuthLoggedIn ? '加入会议' : '登录后继续' }
                                             disabled = { !canJoinMeeting }
                                             onPress = { this._onJoinMeeting }
                                             style = { ({ pressed }) => [
@@ -554,7 +592,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                                     pressed && canJoinMeeting && styles.joinPanelConfirmButtonPressed
                                                 ] }>
                                             <Text style = { styles.joinPanelConfirmText }>
-                                                { '加入会议' }
+                                                { _businessAuthLoggedIn ? '加入会议' : '登录后继续' }
                                             </Text>
                                         </Pressable>
                                     </View>
@@ -576,8 +614,9 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
 function _mapStateToProps(state: IReduxState) {
     return {
         ..._abstractMapStateToProps(state),
-        _configHosts: state['features/base/config'].hosts,
-        _jwt: state['features/base/jwt'].jwt
+        _businessAuthDisplayName: getBusinessAuthDisplayName(state),
+        _businessAuthHydrated: state['features/business-auth'].hydrated,
+        _businessAuthLoggedIn: state['features/business-auth'].isLoggedIn
     };
 }
 

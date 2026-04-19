@@ -4,6 +4,7 @@ import { ThunkDispatch } from 'redux-thunk';
 import { IAnalyticsState } from '../analytics/reducer';
 import { IAuthenticationState } from '../authentication/reducer';
 import { IAVModerationState } from '../av-moderation/reducer';
+import { IBusinessAuthState } from '../business-auth/reducer';
 import { IAppState } from '../base/app/reducer';
 import { IAudioOnlyState } from '../base/audio-only/reducer';
 import { IConferenceState } from '../base/conference/reducer';
@@ -93,6 +94,7 @@ export interface IReduxState {
     'features/analytics': IAnalyticsState;
     'features/authentication': IAuthenticationState;
     'features/av-moderation': IAVModerationState;
+    'features/business-auth': IBusinessAuthState;
     'features/base/app': IAppState;
     'features/base/audio-only': IAudioOnlyState;
     'features/base/color-scheme': any;

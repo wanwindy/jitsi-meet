@@ -1,4 +1,5 @@
 import '../base/config/middleware';
+import '../business-auth/middleware';
 import '../dynamic-branding/middleware';
 import '../gifs/middleware';
 import '../mobile/audio-mode/middleware';
