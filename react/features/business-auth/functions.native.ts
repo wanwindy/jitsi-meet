@@ -3,9 +3,7 @@ import DeviceInfo from 'react-native-device-info';
 import DefaultPreference from 'react-native-default-preference';
 import { v4 as uuidv4 } from 'uuid';
 
-import { getDefaultURL } from '../app/functions.native';
 import { IReduxState } from '../app/types';
-import { toState } from '../base/redux/functions';
 
 import logger from './logger';
 import {
@@ -17,8 +15,7 @@ import {
 const BUSINESS_AUTH_PREFERENCES_NAME = 'jitsi-business-auth-preferences';
 const DEVICE_ID_KEY = 'businessAuthDeviceId';
 const SESSION_KEY = 'businessAuthSession';
-
-type IStateful = IReduxState | (() => IReduxState);
+const BUSINESS_AUTH_SERVICE_URL = 'https://admin.fangxinbanmeet.com';
 
 interface IBusinessAuthResponseData {
     boundDeviceId?: string;
@@ -94,15 +91,6 @@ function _getAppVersion() {
     return DeviceInfo.getReadableVersion?.() || DeviceInfo.getVersion();
 }
 
-function _getBusinessAuthOrigin(stateful: IStateful) {
-    const state = toState(stateful);
-    const location = state['features/base/connection'].locationURL
-        || state['features/base/config'].locationURL;
-    const base = location?.toString() || getDefaultURL(state);
-
-    return new URL(base);
-}
-
 export async function bootstrapBusinessAuthState() {
     const [ deviceInfo, user ] = await Promise.all([
         getCurrentBusinessAuthDeviceInfo(),
@@ -173,8 +161,24 @@ export function getBusinessAuthErrorMessage(status?: number, fallbackMessage?: s
     }
 }
 
-export function getBusinessAuthLoginEndpoint(stateful: IStateful) {
-    return new URL('/api/auth/login', _getBusinessAuthOrigin(stateful)).toString();
+/**
+ * Business APIs must always target the admin service, while meeting pages and
+ * the Jitsi SDK continue using the conference domain.
+ */
+function _getBusinessAuthEndpoint(pathname: string) {
+    return new URL(pathname, BUSINESS_AUTH_SERVICE_URL).toString();
+}
+
+export function getBusinessAuthLoginEndpoint() {
+    return _getBusinessAuthEndpoint('/api/auth/login');
+}
+
+export function getBusinessAuthMeEndpoint() {
+    return _getBusinessAuthEndpoint('/api/auth/me');
+}
+
+export function getBusinessAuthLogoutEndpoint() {
+    return _getBusinessAuthEndpoint('/api/auth/logout');
 }
 
 export function getBusinessAuthPendingNavigation(state: IReduxState) {

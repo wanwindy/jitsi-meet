@@ -185,6 +185,9 @@ function AccountPage() {
         : isLoggedIn
             ? '已登录成功'
             : '尚未绑定账号';
+    const formHint = isLoggedIn
+        ? '如需切换账号，请输入新的账号密码重新登录。退出登录只会清理本地登录态，不会解绑设备。'
+        : '';
 
     return (
         <SafeAreaView
@@ -257,13 +260,9 @@ function AccountPage() {
                     <Text style = { styles.formTitle }>
                         { isLoggedIn ? '切换账号' : '账号登录' }
                     </Text>
-                    <Text style = { styles.formHint }>
-                        {
-                            isLoggedIn
-                                ? '如需切换账号，请输入新的账号密码重新登录。退出登录只会清理本地登录态，不会解绑设备。'
-                                : '登录接口会自动上送 deviceId、平台、设备名称和 App 版本。'
-                        }
-                    </Text>
+                    { Boolean(formHint) && <Text style = { styles.formHint }>
+                        { formHint }
+                    </Text> }
                     <View style = { styles.inputContainer as StyleProp<ViewStyle> }>
                         <TextInput
                             accessibilityLabel = { '账号输入' }

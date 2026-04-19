@@ -80,7 +80,7 @@ export function loginBusinessAccount(username: string, password: string) {
         const deviceInfo = await getCurrentBusinessAuthDeviceInfo(existingDeviceId);
 
         try {
-            const response = await fetch(getBusinessAuthLoginEndpoint(getState()), {
+            const response = await fetch(getBusinessAuthLoginEndpoint(), {
                 body: JSON.stringify({
                     appVersion: deviceInfo.appVersion,
                     deviceId: deviceInfo.deviceId,
