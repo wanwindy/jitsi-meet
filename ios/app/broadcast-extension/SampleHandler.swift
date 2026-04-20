@@ -17,8 +17,12 @@
 import ReplayKit
 
 private enum Constants {
-    // the App Group ID value that the app and the broadcast extension targets are setup with. It differs for each app.
-    static let appGroupIdentifier = "group.com.fangxinban.meet"
+    static let appGroupIdentifierInfoDictionaryKey = "RTCAppGroupIdentifier"
+    static let fallbackAppGroupIdentifier = "group.com.fangxinban.meet"
+    static let socketFileName = "rtc_SSFD"
+    static let screenShareStopRequestedFileName = "rtc_SS_STOP"
+    static let stopBroadcastErrorDomain = "org.jitsi.meet.broadcast"
+    static let stopBroadcastErrorDescription = "Screen sharing stopped"
 }
 
 class SampleHandler: RPBroadcastSampleHandler {
@@ -28,11 +32,22 @@ class SampleHandler: RPBroadcastSampleHandler {
     private var isBroadcastActive = false
     
     private var frameCount: Int = 0
+
+    var appGroupIdentifier: String {
+        Bundle.main.object(forInfoDictionaryKey: Constants.appGroupIdentifierInfoDictionaryKey) as? String
+            ?? Constants.fallbackAppGroupIdentifier
+    }
+
+    var sharedContainerURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
+    }
     
     var socketFilePath: String {
-      let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Constants.appGroupIdentifier)
-        
-        return sharedContainer?.appendingPathComponent("rtc_SSFD").path ?? ""
+        sharedContainerURL?.appendingPathComponent(Constants.socketFileName).path ?? ""
+    }
+
+    var stopRequestFileURL: URL? {
+        sharedContainerURL?.appendingPathComponent(Constants.screenShareStopRequestedFileName)
     }
     
     override init() {
@@ -51,6 +66,7 @@ class SampleHandler: RPBroadcastSampleHandler {
         
         isBroadcastActive = true
         frameCount = 0
+        setStopRequested(false)
         
         DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
         openConnection()
@@ -67,6 +83,7 @@ class SampleHandler: RPBroadcastSampleHandler {
     override func broadcastFinished() {
         // User has requested to finish the broadcast.
         isBroadcastActive = false
+        setStopRequested(true)
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
         clientConnection?.close()
     }
@@ -96,8 +113,11 @@ private extension SampleHandler {
             }
 
             if let error = error {
+                self.setStopRequested(true)
                 self.isBroadcastActive = false
                 self.finishBroadcastWithError(error)
+            } else if self.shouldStopBroadcastOnDisconnect() {
+                self.stopBroadcast()
             } else if self.isBroadcastActive {
                 self.openConnection()
             } else {
@@ -105,7 +125,42 @@ private extension SampleHandler {
             }
         }
     }
-    
+
+    func setStopRequested(_ stopRequested: Bool) {
+        guard
+            let stopRequestFileURL = stopRequestFileURL,
+            let data = (stopRequested ? "1" : "0").data(using: .utf8)
+        else {
+            return
+        }
+
+        try? data.write(to: stopRequestFileURL, options: .atomic)
+    }
+
+    func shouldStopBroadcastOnDisconnect() -> Bool {
+        guard
+            isBroadcastActive,
+            let stopRequestFileURL = stopRequestFileURL,
+            let data = try? Data(contentsOf: stopRequestFileURL),
+            let value = String(data: data, encoding: .utf8)
+        else {
+            return false
+        }
+
+        return value == "1"
+    }
+
+    func stopBroadcast() {
+        isBroadcastActive = false
+
+        let error = NSError(
+            domain: Constants.stopBroadcastErrorDomain,
+            code: 0,
+            userInfo: [ NSLocalizedDescriptionKey: Constants.stopBroadcastErrorDescription ])
+
+        finishBroadcastWithError(error)
+    }
+
     func openConnection() {
         let queue = DispatchQueue(label: "broadcast.connectTimer")
         let timer = DispatchSource.makeTimerSource(queue: queue)

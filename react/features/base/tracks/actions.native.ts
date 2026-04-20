@@ -1,6 +1,7 @@
 import { IReduxState, IStore } from '../../app/types';
 import { showNotification } from '../../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../../notifications/constants';
+import { NativeModules, Platform } from 'react-native';
 import JitsiMeetJS from '../lib-jitsi-meet';
 import { setScreenshareMuted } from '../media/actions';
 
@@ -10,6 +11,12 @@ import logger from './logger';
 
 
 export * from './actions.any';
+
+function _setScreenShareStopRequested(stopRequested: boolean) {
+    if (Platform.OS === 'ios') {
+        NativeModules.ExternalAPI?.setScreenShareStopRequested?.(stopRequested);
+    }
+}
 
 /**
  * Signals that the local participant is ending screensharing or beginning the screensharing flow.
@@ -22,6 +29,8 @@ export * from './actions.any';
 export function toggleScreensharing(enabled: boolean, _ignore1?: boolean, _ignore2?: any) {
     return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
         const state = getState();
+
+        _setScreenShareStopRequested(!enabled);
 
         if (enabled) {
             return _startScreenSharing(dispatch, state);

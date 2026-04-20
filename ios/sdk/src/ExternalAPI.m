@@ -34,6 +34,9 @@ static NSString * const startRecordingAction = @"org.jitsi.meet.START_RECORDING"
 static NSString * const stopRecordingAction = @"org.jitsi.meet.STOP_RECORDING";
 static NSString * const overwriteConfigAction = @"org.jitsi.meet.OVERWRITE_CONFIG";
 static NSString * const sendCameraFacingModeMessageAction = @"org.jitsi.meet.SEND_CAMERA_FACING_MODE_MESSAGE";
+static NSString * const appGroupIdentifierInfoDictionaryKey = @"RTCAppGroupIdentifier";
+static NSString * const fallbackAppGroupIdentifier = @"group.com.fangxinban.meet";
+static NSString * const screenShareStopRequestedFileName = @"rtc_SS_STOP";
 
 @implementation ExternalAPI
 
@@ -147,9 +150,28 @@ RCT_EXPORT_METHOD(sendEvent:(NSString *)name
     [self sendEventWithName:sendEndpointTextMessageAction body:data];
 }
 
+RCT_EXPORT_METHOD(setScreenShareStopRequested:(BOOL)stopRequested) {
+    NSURL *screenShareStopRequestedURL = [self screenShareStopRequestedURL];
+
+    if (screenShareStopRequestedURL == nil) {
+        return;
+    }
+
+    NSString *serializedValue = stopRequested ? @"1" : @"0";
+    NSData *data = [serializedValue dataUsingEncoding:NSUTF8StringEncoding];
+
+    if (data == nil) {
+        return;
+    }
+
+    [data writeToURL:screenShareStopRequestedURL atomically:YES];
+}
+
 - (void)toggleScreenShare:(BOOL)enabled {
     NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
     data[@"enabled"] = [NSNumber numberWithBool:enabled];
+
+    [self setScreenShareStopRequested:!enabled];
     
     [self sendEventWithName:toggleScreenShareAction body:data];
 }
@@ -256,5 +278,15 @@ RCT_EXPORT_METHOD(sendEvent:(NSString *)name
     };
     
     [self sendEventWithName:sendCameraFacingModeMessageAction body:data];
+}
+
+- (NSURL *)screenShareStopRequestedURL {
+    NSString *appGroupIdentifier
+        = [[NSBundle mainBundle] objectForInfoDictionaryKey:appGroupIdentifierInfoDictionaryKey]
+            ?: fallbackAppGroupIdentifier;
+    NSURL *sharedContainerURL
+        = [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:appGroupIdentifier];
+
+    return [sharedContainerURL URLByAppendingPathComponent:screenShareStopRequestedFileName];
 }
 @end
