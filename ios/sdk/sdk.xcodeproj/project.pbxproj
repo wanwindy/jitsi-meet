@@ -17,6 +17,7 @@
 		0BB9AD791F5EC6D7001C08DB /* Intents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0BB9AD781F5EC6D7001C08DB /* Intents.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		0BB9AD7B1F5EC8F4001C08DB /* CallKit.m in Sources */ = {isa = PBXBuildFile; fileRef = 0BB9AD7A1F5EC8F4001C08DB /* CallKit.m */; };
 		0BB9AD7D1F60356D001C08DB /* AppInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 0BB9AD7C1F60356D001C08DB /* AppInfo.m */; };
+		F0C1A00229ABCDE000000001 /* SecureStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = F0C1A00129ABCDE000000001 /* SecureStorage.m */; };
 		0BC4B8691F8C03A700CE8B21 /* CallKitIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = 0BC4B8681F8C01E100CE8B21 /* CallKitIcon.png */; };
 		0BCA495F1EC4B6C600B793EE /* AudioMode.m in Sources */ = {isa = PBXBuildFile; fileRef = 0BCA495C1EC4B6C600B793EE /* AudioMode.m */; };
 		0BCA49601EC4B6C600B793EE /* POSIX.m in Sources */ = {isa = PBXBuildFile; fileRef = 0BCA495D1EC4B6C600B793EE /* POSIX.m */; };
@@ -79,6 +80,7 @@
 		DE9A0144289A9A9A00E41CBB /* JitsiMeetBaseLogHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = DE81A2DD2317ED5400AE1940 /* JitsiMeetBaseLogHandler.m */; };
 		DE9A0146289A9A9A00E41CBB /* JitsiAudioSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 4ED4FFF22721B9B90074E620 /* JitsiAudioSession.m */; };
 		DE9A0147289A9A9A00E41CBB /* AppInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 0BB9AD7C1F60356D001C08DB /* AppInfo.m */; };
+		F0C1A00329ABCDE000000001 /* SecureStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = F0C1A00129ABCDE000000001 /* SecureStorage.m */; };
 		DE9A0148289A9A9A00E41CBB /* LogBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = DE81A2D72316AC7600AE1940 /* LogBridge.m */; };
 		DE9A0149289A9A9A00E41CBB /* RNRootView.m in Sources */ = {isa = PBXBuildFile; fileRef = DEAFA778229EAD520033A7FA /* RNRootView.m */; };
 		DE9A014A289A9A9A00E41CBB /* JitsiMeetUserInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = DE762DB522AFDE8D000DEBD6 /* JitsiMeetUserInfo.m */; };
@@ -124,6 +126,7 @@
 		0BB9AD781F5EC6D7001C08DB /* Intents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Intents.framework; path = System/Library/Frameworks/Intents.framework; sourceTree = SDKROOT; };
 		0BB9AD7A1F5EC8F4001C08DB /* CallKit.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CallKit.m; sourceTree = "<group>"; };
 		0BB9AD7C1F60356D001C08DB /* AppInfo.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppInfo.m; sourceTree = "<group>"; };
+		F0C1A00129ABCDE000000001 /* SecureStorage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecureStorage.m; sourceTree = "<group>"; };
 		0BC4B8681F8C01E100CE8B21 /* CallKitIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = CallKitIcon.png; path = "../../react/features/mobile/call-integration/CallKitIcon.png"; sourceTree = "<group>"; };
 		0BCA495C1EC4B6C600B793EE /* AudioMode.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AudioMode.m; sourceTree = "<group>"; };
 		0BCA495D1EC4B6C600B793EE /* POSIX.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = POSIX.m; sourceTree = "<group>"; };
@@ -243,6 +246,7 @@
 			isa = PBXGroup;
 			children = (
 				0BB9AD7C1F60356D001C08DB /* AppInfo.m */,
+				F0C1A00129ABCDE000000001 /* SecureStorage.m */,
 				0BCA495C1EC4B6C600B793EE /* AudioMode.m */,
 				C69EFA02209A0EFD0027712B /* callkit */,
 				A4A934E7212F3AB8001E9388 /* dropbox */,
@@ -657,6 +661,7 @@
 				4ED4FFF42721B9B90074E620 /* JitsiAudioSession.m in Sources */,
 				4E812F3928F9A4ED0087ACC9 /* JitsiMeetView+Private.m in Sources */,
 				0BB9AD7D1F60356D001C08DB /* AppInfo.m in Sources */,
+				F0C1A00229ABCDE000000001 /* SecureStorage.m in Sources */,
 				DE81A2D92316AC7600AE1940 /* LogBridge.m in Sources */,
 				DEAFA779229EAD520033A7FA /* RNRootView.m in Sources */,
 				DE762DB622AFDE8D000DEBD6 /* JitsiMeetUserInfo.m in Sources */,
@@ -689,6 +694,7 @@
 				DE9A0146289A9A9A00E41CBB /* JitsiAudioSession.m in Sources */,
 				4E0EF63C28CA4069005D1B03 /* JMCallKitProxy.m in Sources */,
 				DE9A0147289A9A9A00E41CBB /* AppInfo.m in Sources */,
+				F0C1A00329ABCDE000000001 /* SecureStorage.m in Sources */,
 				DE9A0148289A9A9A00E41CBB /* LogBridge.m in Sources */,
 				DE9A0149289A9A9A00E41CBB /* RNRootView.m in Sources */,
 				DE9A014A289A9A9A00E41CBB /* JitsiMeetUserInfo.m in Sources */,

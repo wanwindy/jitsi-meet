@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import jwtDecode from 'jwt-decode';
 import DeviceInfo from 'react-native-device-info';
 import DefaultPreference from 'react-native-default-preference';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,11 +13,18 @@ import {
     IBusinessAuthSession,
     IBusinessAuthUser
 } from './types';
+import {
+    getSecureStorageItem,
+    removeSecureStorageItems,
+    setSecureStorageItem
+} from './secureStorage.native';
 
 const BUSINESS_AUTH_PREFERENCES_NAME = 'jitsi-business-auth-preferences';
 const DEVICE_ID_KEY = 'businessAuthDeviceId';
 const SESSION_KEY = 'businessAuthSession';
 const BUSINESS_AUTH_SERVICE_URL = 'https://admin.fangxinbanmeet.com';
+const SECURE_DEVICE_ID_KEY = 'businessAuth.deviceId';
+const SECURE_SESSION_KEY = 'businessAuth.session';
 
 interface IBusinessAuthResponseData {
     accessToken?: string;
@@ -29,8 +37,11 @@ interface IBusinessAuthResponseData {
     lastLoginAt?: string;
     nickname?: string;
     token?: string;
+    tokenExpiresAt?: number | string;
     userId?: number;
     username?: string;
+    exp?: number;
+    expiresAt?: number | string;
 }
 
 interface IBusinessAuthResponsePayload {
@@ -40,6 +51,13 @@ interface IBusinessAuthResponsePayload {
     message?: string;
     success?: boolean;
     token?: string;
+    tokenExpiresAt?: number | string;
+    exp?: number;
+    expiresAt?: number | string;
+}
+
+interface IBusinessAuthJwtPayload {
+    exp?: number;
 }
 
 async function _prepareBusinessAuthPreferences() {
@@ -66,7 +84,12 @@ function _normalizePersistedSession(rawSession: string): IBusinessAuthSession | 
     return undefined;
 }
 
-async function _getPersistedSession(): Promise<IBusinessAuthSession | undefined> {
+async function _clearLegacyPersistedBusinessAuthSession() {
+    await _prepareBusinessAuthPreferences();
+    await DefaultPreference.clearMultiple([ SESSION_KEY ]);
+}
+
+async function _getLegacyPersistedSession(): Promise<IBusinessAuthSession | undefined> {
     await _prepareBusinessAuthPreferences();
 
     const rawSession = await DefaultPreference.get(SESSION_KEY);
@@ -86,14 +109,83 @@ async function _getPersistedSession(): Promise<IBusinessAuthSession | undefined>
 }
 
 async function _getPersistedDeviceId() {
+    const secureDeviceId = await getSecureStorageItem(SECURE_DEVICE_ID_KEY);
+
+    if (secureDeviceId) {
+        return secureDeviceId;
+    }
+
     await _prepareBusinessAuthPreferences();
 
-    return DefaultPreference.get(DEVICE_ID_KEY);
+    const legacyDeviceId = await DefaultPreference.get(DEVICE_ID_KEY);
+
+    if (legacyDeviceId) {
+        try {
+            await _persistSecureDeviceId(legacyDeviceId);
+        } catch (error) {
+            logger.warn('Failed to migrate device id into secure storage, keeping legacy cache');
+        }
+    }
+
+    return legacyDeviceId;
+}
+
+async function _getPersistedSession(): Promise<IBusinessAuthSession | undefined> {
+    const rawSecureSession = await getSecureStorageItem(SECURE_SESSION_KEY);
+
+    if (rawSecureSession) {
+        try {
+            return _normalizePersistedSession(rawSecureSession);
+        } catch (error) {
+            logger.warn('Failed to parse secure business session, clearing corrupted state');
+            await removeSecureStorageItems([ SECURE_SESSION_KEY ]);
+
+            return undefined;
+        }
+    }
+
+    const legacySession = await _getLegacyPersistedSession();
+
+    if (legacySession) {
+        try {
+            await persistBusinessAuthSession(legacySession);
+            await _clearLegacyPersistedBusinessAuthSession();
+        } catch (error) {
+            logger.warn('Failed to migrate business session into secure storage, using legacy cache for now');
+        }
+    }
+
+    return legacySession;
+}
+
+async function _persistLegacyDeviceId(deviceId: string) {
+    await _prepareBusinessAuthPreferences();
+    await DefaultPreference.set(DEVICE_ID_KEY, deviceId);
+}
+
+async function _persistSecureDeviceId(deviceId: string) {
+    await setSecureStorageItem(SECURE_DEVICE_ID_KEY, deviceId);
 }
 
 async function _persistDeviceId(deviceId: string) {
-    await _prepareBusinessAuthPreferences();
-    await DefaultPreference.set(DEVICE_ID_KEY, deviceId);
+    let secureStoragePersisted = false;
+
+    try {
+        await _persistSecureDeviceId(deviceId);
+        secureStoragePersisted = true;
+    } catch (error) {
+        logger.warn('Failed to persist device id in secure storage, falling back to legacy cache');
+    }
+
+    try {
+        await _persistLegacyDeviceId(deviceId);
+    } catch (error) {
+        if (!secureStoragePersisted) {
+            throw error;
+        }
+
+        logger.warn('Failed to update legacy device id cache, continuing with secure storage only');
+    }
 }
 
 async function _resolveDeviceName() {
@@ -127,13 +219,16 @@ export async function bootstrapBusinessAuthState() {
     return {
         deviceInfo,
         token: session?.token,
+        tokenExpiresAt: session?.tokenExpiresAt,
         user: session?.user
     };
 }
 
 export async function clearPersistedBusinessAuthSession() {
-    await _prepareBusinessAuthPreferences();
-    await DefaultPreference.clearMultiple([ SESSION_KEY ]);
+    await Promise.all([
+        removeSecureStorageItems([ SECURE_SESSION_KEY ]),
+        _clearLegacyPersistedBusinessAuthSession()
+    ]);
 }
 
 export async function getCurrentBusinessAuthDeviceInfo(
@@ -270,23 +365,94 @@ export function extractBusinessAuthToken(payload?: IBusinessAuthResponsePayload)
         || payload?.accessToken;
 }
 
-export function mapBusinessAuthUser(data?: IBusinessAuthResponseData, fallbackUsername?: string): IBusinessAuthUser {
+function _normalizeTokenExpiresAt(value?: number | string) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        const timestamp = value > 1_000_000_000_000 ? value : value * 1000;
+
+        return new Date(timestamp).toISOString();
+    }
+
+    if (typeof value === 'string') {
+        const trimmedValue = value.trim();
+
+        if (!trimmedValue) {
+            return undefined;
+        }
+
+        if (/^\d+$/.test(trimmedValue)) {
+            return _normalizeTokenExpiresAt(Number(trimmedValue));
+        }
+
+        const parsedDate = new Date(trimmedValue);
+
+        if (!Number.isNaN(parsedDate.getTime())) {
+            return parsedDate.toISOString();
+        }
+    }
+
+    return undefined;
+}
+
+export function extractBusinessAuthTokenExpiresAt(payload?: IBusinessAuthResponsePayload, token?: string) {
+    const normalizedExpiration = _normalizeTokenExpiresAt(
+        payload?.data?.tokenExpiresAt
+            || payload?.data?.expiresAt
+            || payload?.data?.exp
+            || payload?.tokenExpiresAt
+            || payload?.expiresAt
+            || payload?.exp
+    );
+
+    if (normalizedExpiration) {
+        return normalizedExpiration;
+    }
+
+    const resolvedToken = token || extractBusinessAuthToken(payload);
+
+    if (!resolvedToken) {
+        return undefined;
+    }
+
+    try {
+        const decodedToken = jwtDecode<IBusinessAuthJwtPayload>(resolvedToken);
+
+        return _normalizeTokenExpiresAt(decodedToken?.exp);
+    } catch (error) {
+        logger.warn('Failed to decode business auth token expiration', error);
+    }
+
+    return undefined;
+}
+
+export function mapBusinessAuthUser(
+        data?: IBusinessAuthResponseData,
+        fallbackUsername?: string,
+        fallbackUser?: IBusinessAuthUser): IBusinessAuthUser {
     return {
-        boundDeviceId: data?.boundDeviceId,
-        deviceBoundAt: data?.deviceBoundAt,
-        deviceBoundNow: data?.deviceBoundNow,
-        deviceName: data?.deviceName,
-        devicePlatform: data?.devicePlatform,
-        lastLoginAt: data?.lastLoginAt,
-        nickname: data?.nickname,
-        userId: data?.userId,
-        username: data?.username || fallbackUsername || ''
+        boundDeviceId: data?.boundDeviceId ?? fallbackUser?.boundDeviceId,
+        deviceBoundAt: data?.deviceBoundAt ?? fallbackUser?.deviceBoundAt,
+        deviceBoundNow: data?.deviceBoundNow ?? fallbackUser?.deviceBoundNow,
+        deviceName: data?.deviceName ?? fallbackUser?.deviceName,
+        devicePlatform: data?.devicePlatform ?? fallbackUser?.devicePlatform,
+        lastLoginAt: data?.lastLoginAt ?? fallbackUser?.lastLoginAt,
+        nickname: data?.nickname ?? fallbackUser?.nickname,
+        userId: data?.userId ?? fallbackUser?.userId,
+        username: data?.username || fallbackUsername || fallbackUser?.username || ''
     };
 }
 
-export async function persistBusinessAuthSession(session: IBusinessAuthSession) {
-    await _prepareBusinessAuthPreferences();
-    await DefaultPreference.set(SESSION_KEY, JSON.stringify(session));
+export async function persistBusinessAuthSession(session: IBusinessAuthSession, deviceId?: string) {
+    await setSecureStorageItem(SECURE_SESSION_KEY, JSON.stringify(session));
+
+    try {
+        await _clearLegacyPersistedBusinessAuthSession();
+    } catch (error) {
+        logger.warn('Failed to clear legacy business session cache after secure persistence');
+    }
+
+    if (deviceId) {
+        await _persistDeviceId(deviceId);
+    }
 }
 
 export type {

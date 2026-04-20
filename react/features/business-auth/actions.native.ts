@@ -29,6 +29,7 @@ import {
     getBusinessAuthRequestHeaders,
     getCurrentBusinessAuthDeviceInfo,
     extractBusinessAuthToken,
+    extractBusinessAuthTokenExpiresAt,
     mapBusinessAuthUser,
     parseBusinessAuthResponse,
     persistBusinessAuthSession
@@ -52,6 +53,7 @@ export function bootstrapBusinessAuth() {
     return async (dispatch: IStore['dispatch']) => {
         let deviceInfo;
         let token;
+        let tokenExpiresAt;
         let user;
 
         try {
@@ -59,6 +61,7 @@ export function bootstrapBusinessAuth() {
 
             deviceInfo = restoredState.deviceInfo;
             token = restoredState.token;
+            tokenExpiresAt = restoredState.tokenExpiresAt;
             user = restoredState.user;
 
             if (token) {
@@ -70,17 +73,20 @@ export function bootstrapBusinessAuth() {
                     const payload = await parseBusinessAuthResponse(response);
 
                     if (response.ok && payload?.success && payload.data) {
-                        user = mapBusinessAuthUser(payload.data, user?.username);
+                        user = mapBusinessAuthUser(payload.data, user?.username, user);
+                        tokenExpiresAt = extractBusinessAuthTokenExpiresAt(payload, token) || tokenExpiresAt;
                         await persistBusinessAuthSession({
                             token,
+                            tokenExpiresAt,
                             user
-                        });
+                        }, deviceInfo?.deviceId);
                     } else if (response.status === 401 || response.status === 403) {
                         await Promise.all([
                             clearPersistedBusinessAuthSession(),
                             clearStoredLoginCredentials()
                         ]);
                         token = undefined;
+                        tokenExpiresAt = undefined;
                         user = undefined;
                     } else {
                         logger.warn(`Failed to validate persisted business token, keeping local session (status: ${response.status})`);
@@ -97,6 +103,7 @@ export function bootstrapBusinessAuth() {
         dispatch({
             deviceInfo,
             token,
+            tokenExpiresAt,
             type: BUSINESS_AUTH_BOOTSTRAP_FINISHED,
             user
         });
@@ -166,19 +173,20 @@ export function loginBusinessAccount(username: string, password: string) {
             }
 
             const token = extractBusinessAuthToken(payload);
+            const tokenExpiresAt = extractBusinessAuthTokenExpiresAt(payload, token);
             const user = mapBusinessAuthUser(payload.data, trimmedUsername);
 
-            await Promise.all([
-                persistBusinessAuthSession({
-                    token,
-                    user
-                }),
-                persistStoredLoginCredentials(trimmedUsername, trimmedPassword)
-            ]);
+            await persistBusinessAuthSession({
+                token,
+                tokenExpiresAt,
+                user
+            }, deviceInfo.deviceId);
+            await persistStoredLoginCredentials(trimmedUsername, trimmedPassword);
 
             dispatch({
                 deviceInfo,
                 token,
+                tokenExpiresAt,
                 type: BUSINESS_AUTH_LOGIN_SUCCEEDED,
                 user
             });
@@ -186,6 +194,7 @@ export function loginBusinessAccount(username: string, password: string) {
             return {
                 message: payload.message || '登录成功',
                 token,
+                tokenExpiresAt,
                 user
             };
         } catch (error: any) {

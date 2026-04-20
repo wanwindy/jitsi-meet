@@ -14,6 +14,7 @@ export interface IBusinessAuthPendingNavigation {
 
 export interface IBusinessAuthSession {
     token?: string;
+    tokenExpiresAt?: string;
     user?: IBusinessAuthUser;
 }
 
