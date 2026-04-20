@@ -23,6 +23,7 @@ export interface IBusinessAuthState {
     isLoggedIn: boolean;
     isSubmitting: boolean;
     pendingNavigation?: IBusinessAuthPendingNavigation;
+    token?: string;
     user?: IBusinessAuthUser;
 }
 
@@ -41,6 +42,7 @@ ReducerRegistry.register<IBusinessAuthState>('features/business-auth',
             error: undefined,
             hydrated: true,
             isLoggedIn: Boolean(action.user),
+            token: action.token,
             user: action.user
         });
 
@@ -66,6 +68,7 @@ ReducerRegistry.register<IBusinessAuthState>('features/business-auth',
             hydrated: true,
             isLoggedIn: true,
             isSubmitting: false,
+            token: action.token,
             user: action.user
         });
 
@@ -75,6 +78,7 @@ ReducerRegistry.register<IBusinessAuthState>('features/business-auth',
             isLoggedIn: false,
             isSubmitting: false,
             pendingNavigation: undefined,
+            token: undefined,
             user: undefined
         });
 

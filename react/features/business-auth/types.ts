@@ -12,6 +12,11 @@ export interface IBusinessAuthPendingNavigation {
     uri: string;
 }
 
+export interface IBusinessAuthSession {
+    token?: string;
+    user?: IBusinessAuthUser;
+}
+
 export interface IBusinessAuthUser {
     boundDeviceId?: string;
     deviceBoundAt?: string;

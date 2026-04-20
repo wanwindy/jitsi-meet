@@ -9,6 +9,7 @@ import logger from './logger';
 import {
     IBusinessAuthDeviceInfo,
     IBusinessAuthPendingNavigation,
+    IBusinessAuthSession,
     IBusinessAuthUser
 } from './types';
 
@@ -18,28 +19,54 @@ const SESSION_KEY = 'businessAuthSession';
 const BUSINESS_AUTH_SERVICE_URL = 'https://admin.fangxinbanmeet.com';
 
 interface IBusinessAuthResponseData {
+    accessToken?: string;
     boundDeviceId?: string;
     deviceBoundAt?: string;
     deviceBoundNow?: boolean;
     deviceName?: string;
     devicePlatform?: string;
+    jwt?: string;
     lastLoginAt?: string;
     nickname?: string;
+    token?: string;
     userId?: number;
     username?: string;
 }
 
 interface IBusinessAuthResponsePayload {
+    accessToken?: string;
     data?: IBusinessAuthResponseData;
+    jwt?: string;
     message?: string;
     success?: boolean;
+    token?: string;
 }
 
 async function _prepareBusinessAuthPreferences() {
     await DefaultPreference.setName(BUSINESS_AUTH_PREFERENCES_NAME);
 }
 
-async function _getPersistedSession(): Promise<IBusinessAuthUser | undefined> {
+function _normalizePersistedSession(rawSession: string): IBusinessAuthSession | undefined {
+    const parsedSession = JSON.parse(rawSession) as IBusinessAuthSession | IBusinessAuthUser | undefined;
+
+    if (!parsedSession || typeof parsedSession !== 'object') {
+        return undefined;
+    }
+
+    if ('user' in parsedSession || 'token' in parsedSession) {
+        return parsedSession as IBusinessAuthSession;
+    }
+
+    if ('username' in parsedSession) {
+        return {
+            user: parsedSession as IBusinessAuthUser
+        };
+    }
+
+    return undefined;
+}
+
+async function _getPersistedSession(): Promise<IBusinessAuthSession | undefined> {
     await _prepareBusinessAuthPreferences();
 
     const rawSession = await DefaultPreference.get(SESSION_KEY);
@@ -49,7 +76,7 @@ async function _getPersistedSession(): Promise<IBusinessAuthUser | undefined> {
     }
 
     try {
-        return JSON.parse(rawSession) as IBusinessAuthUser;
+        return _normalizePersistedSession(rawSession);
     } catch (error) {
         logger.warn('Failed to parse persisted business session, clearing corrupted state');
         await DefaultPreference.clearMultiple([ SESSION_KEY ]);
@@ -92,14 +119,15 @@ function _getAppVersion() {
 }
 
 export async function bootstrapBusinessAuthState() {
-    const [ deviceInfo, user ] = await Promise.all([
+    const [ deviceInfo, session ] = await Promise.all([
         getCurrentBusinessAuthDeviceInfo(),
         _getPersistedSession()
     ]);
 
     return {
         deviceInfo,
-        user
+        token: session?.token,
+        user: session?.user
     };
 }
 
@@ -185,6 +213,10 @@ export function getBusinessAuthPendingNavigation(state: IReduxState) {
     return state['features/business-auth'].pendingNavigation;
 }
 
+export function getBusinessAuthToken(state: IReduxState) {
+    return state['features/business-auth'].token;
+}
+
 export function getBusinessAuthUser(state: IReduxState) {
     return state['features/business-auth'].user;
 }
@@ -213,13 +245,53 @@ export async function parseBusinessAuthResponse(response: Response): Promise<IBu
     }
 }
 
-export async function persistBusinessAuthSession(user: IBusinessAuthUser) {
+export function getBusinessAuthRequestHeaders(token?: string, includeJsonContentType = false) {
+    const headers: Record<string, string> = {
+        Accept: 'application/json'
+    };
+
+    if (includeJsonContentType) {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+}
+
+export function extractBusinessAuthToken(payload?: IBusinessAuthResponsePayload) {
+    return payload?.data?.token
+        || payload?.data?.jwt
+        || payload?.data?.accessToken
+        || payload?.token
+        || payload?.jwt
+        || payload?.accessToken;
+}
+
+export function mapBusinessAuthUser(data?: IBusinessAuthResponseData, fallbackUsername?: string): IBusinessAuthUser {
+    return {
+        boundDeviceId: data?.boundDeviceId,
+        deviceBoundAt: data?.deviceBoundAt,
+        deviceBoundNow: data?.deviceBoundNow,
+        deviceName: data?.deviceName,
+        devicePlatform: data?.devicePlatform,
+        lastLoginAt: data?.lastLoginAt,
+        nickname: data?.nickname,
+        userId: data?.userId,
+        username: data?.username || fallbackUsername || ''
+    };
+}
+
+export async function persistBusinessAuthSession(session: IBusinessAuthSession) {
     await _prepareBusinessAuthPreferences();
-    await DefaultPreference.set(SESSION_KEY, JSON.stringify(user));
+    await DefaultPreference.set(SESSION_KEY, JSON.stringify(session));
 }
 
 export type {
     IBusinessAuthDeviceInfo,
     IBusinessAuthPendingNavigation,
+    IBusinessAuthSession,
     IBusinessAuthUser
 };

@@ -24,7 +24,12 @@ import {
     clearPersistedBusinessAuthSession,
     getBusinessAuthErrorMessage,
     getBusinessAuthLoginEndpoint,
+    getBusinessAuthLogoutEndpoint,
+    getBusinessAuthMeEndpoint,
+    getBusinessAuthRequestHeaders,
     getCurrentBusinessAuthDeviceInfo,
+    extractBusinessAuthToken,
+    mapBusinessAuthUser,
     parseBusinessAuthResponse,
     persistBusinessAuthSession
 } from './functions';
@@ -46,13 +51,44 @@ function _createBusinessAuthActionError(message: string, status?: number) {
 export function bootstrapBusinessAuth() {
     return async (dispatch: IStore['dispatch']) => {
         let deviceInfo;
+        let token;
         let user;
 
         try {
             const restoredState = await bootstrapBusinessAuthState();
 
             deviceInfo = restoredState.deviceInfo;
+            token = restoredState.token;
             user = restoredState.user;
+
+            if (token) {
+                try {
+                    const response = await fetch(getBusinessAuthMeEndpoint(), {
+                        headers: getBusinessAuthRequestHeaders(token),
+                        method: 'GET'
+                    });
+                    const payload = await parseBusinessAuthResponse(response);
+
+                    if (response.ok && payload?.success && payload.data) {
+                        user = mapBusinessAuthUser(payload.data, user?.username);
+                        await persistBusinessAuthSession({
+                            token,
+                            user
+                        });
+                    } else if (response.status === 401 || response.status === 403) {
+                        await Promise.all([
+                            clearPersistedBusinessAuthSession(),
+                            clearStoredLoginCredentials()
+                        ]);
+                        token = undefined;
+                        user = undefined;
+                    } else {
+                        logger.warn(`Failed to validate persisted business token, keeping local session (status: ${response.status})`);
+                    }
+                } catch (error) {
+                    logger.warn('Failed to validate persisted business token, keeping local session', error);
+                }
+            }
         } catch (error) {
             logger.warn('Failed to bootstrap business auth state, continuing with a fresh device context');
             deviceInfo = await getCurrentBusinessAuthDeviceInfo();
@@ -60,6 +96,7 @@ export function bootstrapBusinessAuth() {
 
         dispatch({
             deviceInfo,
+            token,
             type: BUSINESS_AUTH_BOOTSTRAP_FINISHED,
             user
         });
@@ -111,10 +148,7 @@ export function loginBusinessAccount(username: string, password: string) {
                     platform: deviceInfo.platform,
                     username: trimmedUsername
                 }),
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json'
-                },
+                headers: getBusinessAuthRequestHeaders(undefined, true),
                 method: 'POST'
             });
             const payload = await parseBusinessAuthResponse(response);
@@ -131,31 +165,27 @@ export function loginBusinessAccount(username: string, password: string) {
                 throw _createBusinessAuthActionError(errorMessage, response.status);
             }
 
-            const user = {
-                boundDeviceId: payload.data.boundDeviceId,
-                deviceBoundAt: payload.data.deviceBoundAt,
-                deviceBoundNow: payload.data.deviceBoundNow,
-                deviceName: payload.data.deviceName,
-                devicePlatform: payload.data.devicePlatform,
-                lastLoginAt: payload.data.lastLoginAt,
-                nickname: payload.data.nickname,
-                userId: payload.data.userId,
-                username: payload.data.username || trimmedUsername
-            };
+            const token = extractBusinessAuthToken(payload);
+            const user = mapBusinessAuthUser(payload.data, trimmedUsername);
 
             await Promise.all([
-                persistBusinessAuthSession(user),
+                persistBusinessAuthSession({
+                    token,
+                    user
+                }),
                 persistStoredLoginCredentials(trimmedUsername, trimmedPassword)
             ]);
 
             dispatch({
                 deviceInfo,
+                token,
                 type: BUSINESS_AUTH_LOGIN_SUCCEEDED,
                 user
             });
 
             return {
                 message: payload.message || '登录成功',
+                token,
                 user
             };
         } catch (error: any) {
@@ -179,7 +209,20 @@ export function loginBusinessAccount(username: string, password: string) {
 }
 
 export function logoutBusinessAccount() {
-    return async (dispatch: IStore['dispatch']) => {
+    return async (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
+        const token = getState()['features/business-auth'].token;
+
+        if (token) {
+            try {
+                await fetch(getBusinessAuthLogoutEndpoint(), {
+                    headers: getBusinessAuthRequestHeaders(token),
+                    method: 'POST'
+                });
+            } catch (error) {
+                logger.warn('Business logout request failed, clearing local session anyway', error);
+            }
+        }
+
         await Promise.all([
             clearPersistedBusinessAuthSession(),
             clearStoredLoginCredentials()
