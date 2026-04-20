@@ -66,11 +66,11 @@ interface IState {
     generatedRoomName: string;
     hintBoxAnimation?: any;
     insecureRoomName: boolean;
-    isSettingsScreenFocused?: boolean;
     joining: boolean;
     room: string;
     roomNameInputAnimation?: any;
     roomPlaceholder: string;
+    showJoinPanel?: boolean;
     updateTimeoutId?: number;
 }
 
@@ -103,9 +103,9 @@ export class AbstractWelcomePage<P extends IProps> extends Component<P, IState> 
         joining: false,
         room: '',
         roomPlaceholder: '',
+        showJoinPanel: false,
         updateTimeoutId: undefined,
         _fieldFocused: false,
-        isSettingsScreenFocused: false,
         roomNameInputAnimation: 0,
         hintBoxAnimation: 0
     };

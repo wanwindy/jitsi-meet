@@ -1,7 +1,9 @@
 import React from 'react';
 import {
     Image,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StyleProp,
@@ -181,7 +183,6 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
     constructor(props: IProps) {
         super(props);
 
-        this.state.isSettingsScreenFocused = true;
         this._joinMeetingInputRef = React.createRef<TextInput>();
 
         this._onCreateMeeting = this._onCreateMeeting.bind(this);
@@ -234,7 +235,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             uri: room
         }));
         this.setState({
-            isSettingsScreenFocused: false
+            showJoinPanel: false
         });
         this._openAccountPage();
     }
@@ -308,7 +309,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
 
         this._navigateToMeeting(room, 'join');
         this.setState({
-            isSettingsScreenFocused: false
+            showJoinPanel: false
         });
     }
 
@@ -331,7 +332,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      */
     _closeJoinPanel() {
         this.setState({
-            isSettingsScreenFocused: false
+            showJoinPanel: false
         });
     }
 
@@ -354,10 +355,10 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      * @returns {void}
      */
     _toggleJoinPanel() {
-        const showJoinPanel = Boolean(this.state.isSettingsScreenFocused);
+        const showJoinPanel = Boolean(this.state.showJoinPanel);
 
         this.setState({
-            isSettingsScreenFocused: !showJoinPanel,
+            showJoinPanel: !showJoinPanel,
             room: showJoinPanel ? '' : this.state.room
         });
     }
@@ -424,7 +425,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      */
     override render() {
         const canJoinMeeting = Boolean(this.state.room) && !this.state.joining;
-        const showJoinPanel = Boolean(this.state.isSettingsScreenFocused);
+        const showJoinPanel = Boolean(this.state.showJoinPanel);
         const { _businessAuthDisplayName, _businessAuthHydrated, _businessAuthLoggedIn } = this.props;
 
         const accountNoticeTitle = _businessAuthLoggedIn
@@ -569,7 +570,9 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                     onShow = { this._onJoinModalShow }
                     transparent = { true }
                     visible = { showJoinPanel }>
-                    <View style = { styles.joinModalOverlay as StyleProp<ViewStyle> }>
+                    <KeyboardAvoidingView
+                        behavior = { Platform.OS === 'ios' ? 'padding' : 'height' }
+                        style = { styles.joinModalOverlay as StyleProp<ViewStyle> }>
                         <Pressable
                             accessibilityLabel = { '关闭加入会议弹窗' }
                             onPress = { this._closeJoinPanel }
@@ -626,7 +629,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                 </Pressable>
                             </View>
                         </View>
-                    </View>
+                    </KeyboardAvoidingView>
                 </Modal>
             </SafeAreaView>
         );
