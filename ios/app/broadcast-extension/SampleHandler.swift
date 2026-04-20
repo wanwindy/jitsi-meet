@@ -25,6 +25,7 @@ class SampleHandler: RPBroadcastSampleHandler {
     
     private var clientConnection: SocketConnection?
     private var uploader: SampleUploader?
+    private var isBroadcastActive = false
     
     private var frameCount: Int = 0
     
@@ -48,6 +49,7 @@ class SampleHandler: RPBroadcastSampleHandler {
         // User has requested to start the broadcast. Setup info from the UI extension can be supplied but optional.
         print("broadcast started")
         
+        isBroadcastActive = true
         frameCount = 0
         
         DarwinNotificationCenter.shared.postNotification(.broadcastStarted)
@@ -64,6 +66,7 @@ class SampleHandler: RPBroadcastSampleHandler {
     
     override func broadcastFinished() {
         // User has requested to finish the broadcast.
+        isBroadcastActive = false
         DarwinNotificationCenter.shared.postNotification(.broadcastStopped)
         clientConnection?.close()
     }
@@ -87,14 +90,18 @@ private extension SampleHandler {
     func setupConnection() {
         clientConnection?.didClose = { [weak self] error in
             print("client connection did close \(String(describing: error))")
-          
+
+            guard let self = self else {
+                return
+            }
+
             if let error = error {
-                self?.finishBroadcastWithError(error)
+                self.isBroadcastActive = false
+                self.finishBroadcastWithError(error)
+            } else if self.isBroadcastActive {
+                self.openConnection()
             } else {
-                // the displayed failure message is more user friendly when using NSError instead of Error
-                let JMScreenSharingStopped = 10001
-                let customError = NSError(domain: RPRecordingErrorDomain, code: JMScreenSharingStopped, userInfo: [NSLocalizedDescriptionKey: "Screen sharing stopped"])
-                self?.finishBroadcastWithError(customError)
+                print("client connection closed after broadcast finished")
             }
         }
     }

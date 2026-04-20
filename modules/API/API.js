@@ -903,12 +903,13 @@ function initCommands() {
                 defaultTab: SETTINGS_TABS.VIRTUAL_BACKGROUND }));
         },
         'end-conference': () => {
-            APP.store.dispatch(endConference());
             const state = APP.store.getState();
             const conference = getCurrentConference(state);
 
             if (!conference) {
                 logger.error('Conference not yet available');
+            } else if (!isLocalParticipantModerator(state)) {
+                logger.error('Missing moderator rights to end conference');
             } else if (conference.isEndConferenceSupported()) {
                 APP.store.dispatch(endConference());
             } else {

@@ -20,6 +20,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.media.AudioManager;
+import android.os.Build;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
@@ -222,6 +223,23 @@ class AudioModeModule extends ReactContextBaseJavaModule {
     }
 
     /**
+     * Some Android vendors are more prone to acoustic feedback when video calls
+     * start directly on the loudspeaker. Prefer the earpiece on those devices
+     * while still allowing the user to switch routes manually.
+     *
+     * @return {@code true} if video calls should default to the earpiece.
+     */
+    private boolean shouldPreferEarpieceForVideoCall() {
+        final String brand = Build.BRAND == null ? "" : Build.BRAND.toLowerCase();
+        final String manufacturer = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.toLowerCase();
+
+        return brand.contains("oppo")
+            || brand.contains("vivo")
+            || manufacturer.contains("oppo")
+            || manufacturer.contains("vivo");
+    }
+
+    /**
      * Initializes the audio device handler module. This function is called *after* all Catalyst
      * modules have been created, and that's why we use it, because {@link AudioDeviceHandlerConnectionService}
      * needs access to another Catalyst module, so doing this in the constructor would be too early.
@@ -407,6 +425,10 @@ class AudioModeModule extends ReactContextBaseJavaModule {
             audioDevice = DEVICE_BLUETOOTH;
         } else if (headsetAvailable) {
             audioDevice = DEVICE_HEADPHONES;
+        } else if (mode == VIDEO_CALL
+                && shouldPreferEarpieceForVideoCall()
+                && availableDevices.contains(DEVICE_EARPIECE)) {
+            audioDevice = DEVICE_EARPIECE;
         } else {
             audioDevice = DEVICE_SPEAKER;
         }
