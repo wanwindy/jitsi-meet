@@ -13,10 +13,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { appNavigate } from '../../app/actions.native';
 import { IReduxState } from '../../app/types';
 import {
     bootstrapBusinessAuth,
+    continuePendingBusinessAuthNavigation,
     clearPendingBusinessAuthNavigation,
     loginBusinessAccount,
     logoutBusinessAccount
@@ -122,10 +122,8 @@ function AccountPage() {
             setPassword('');
 
             if (pendingNavigation) {
-                const { uri, ...options } = pendingNavigation;
-
+                await dispatch(continuePendingBusinessAuthNavigation(pendingNavigation));
                 dispatch(clearPendingBusinessAuthNavigation());
-                await dispatch(appNavigate(uri, options));
 
                 return;
             }
@@ -178,7 +176,7 @@ function AccountPage() {
     const statusDescription = !hydrated
         ? '正在初始化本机设备信息，请稍候。'
         : isLoggedIn
-            ? '当前设备已通过主持人账号校验，可从首页创建会议。参会人仍可直接通过会议号加入。'
+            ? '当前设备已通过主持人账号校验，创建会议时会自动完成主持人认证；参会人仍可直接通过会议号加入。'
             : '只有主持人创建会议时需要登录。首次登录时，后端会自动将当前设备绑定到该账号。';
     const currentBindingStatus = isLoggedIn && user?.boundDeviceId && deviceInfo?.deviceId === user.boundDeviceId
         ? '当前设备已绑定'
@@ -189,7 +187,7 @@ function AccountPage() {
         ? '登录后将继续创建会议'
         : '登录后将继续进入会议';
     const formHint = isLoggedIn
-        ? '如需切换主持人账号，请输入新的账号密码重新登录。退出登录只会清理本地登录态，不会解绑设备。'
+        ? '如需切换主持人账号，请输入新的账号密码重新登录。退出登录会清理本机主持人凭据，但不会解绑设备。'
         : '';
 
     return (
@@ -210,7 +208,7 @@ function AccountPage() {
                         src = { IconArrowLeft } />
                 </Pressable>
                 <Text style = { styles.headerTitle }>
-                    { '个人账号' }
+                    { '主持人账号' }
                 </Text>
                 <View style = { styles.headerSpacer } />
             </View>

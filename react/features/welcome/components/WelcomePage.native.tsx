@@ -15,7 +15,10 @@ import { connect } from 'react-redux';
 import { appNavigate } from '../../app/actions.native';
 import { getName } from '../../app/functions.native';
 import { IReduxState } from '../../app/types';
-import { setPendingBusinessAuthNavigation } from '../../business-auth/actions.native';
+import {
+    setPendingBusinessAuthNavigation,
+    startAuthenticatedHostMeeting
+} from '../../business-auth/actions.native';
 import { getBusinessAuthDisplayName } from '../../business-auth/functions';
 import type { MeetingEntryType } from '../../base/conference/reducer';
 import { translate } from '../../base/i18n/functions';
@@ -269,8 +272,21 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             return;
         }
 
-        this.setState({ room });
-        this._navigateToMeeting(room, 'create');
+        const onCreateMeetingSettled = () => {
+            this._mounted && this.setState({ joining: false });
+        };
+
+        this.setState({
+            joining: true,
+            room
+        });
+        this.props.dispatch(startAuthenticatedHostMeeting(room))
+            .catch((error: Error) => {
+                if (error.message === '主持人登录状态已失效，请重新登录主持人账号后再试。') {
+                    this._queueMeetingEntry(room, 'create');
+                }
+            })
+            .then(onCreateMeetingSettled, onCreateMeetingSettled);
     }
 
     /**
@@ -401,7 +417,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                 ? '主持人请先登录账号'
                 : '正在准备设备信息';
         const accountNoticeDescription = _businessAuthLoggedIn
-            ? '当前设备已完成主持人身份校验，可以创建会议；参会人也可直接输入会议号加入。'
+            ? '当前设备已完成主持人身份校验，创建会议时会自动完成主持人认证；参会人也可直接输入会议号加入。'
             : _businessAuthHydrated
                 ? '创建会议前请先登录主持人账号。首次登录会自动绑定当前设备；参会人输入会议号可直接加入，无需登录。'
                 : 'App 正在初始化本机 deviceId，完成后可使用业务账号登录。';
@@ -427,7 +443,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                         </View>
                         <View style = { styles.topBarActions as StyleProp<ViewStyle> }>
                             <Pressable
-                                accessibilityLabel = { '个人账号' }
+                                accessibilityLabel = { '主持人账号' }
                                 onPress = { this._openAccountPage }
                                 style = { ({ pressed }) => [
                                     styles.topBarActionButton,

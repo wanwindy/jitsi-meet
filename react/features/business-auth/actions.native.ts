@@ -1,4 +1,14 @@
+import { appNavigate } from '../app/actions.native';
 import { IStore } from '../app/types';
+import {
+    clearStoredLoginCredentials,
+    getStoredLoginCredentials,
+    persistStoredLoginCredentials
+} from '../authentication/functions.native';
+import { connect as connectAction } from '../base/connection/actions.native';
+import { toJid } from '../base/connection/functions';
+import { navigateRoot } from '../mobile/navigation/rootNavigationContainerRef';
+import { screen } from '../mobile/navigation/routes';
 
 import {
     BUSINESS_AUTH_BOOTSTRAP_FINISHED,
@@ -62,6 +72,18 @@ export function clearPendingBusinessAuthNavigation() {
     };
 }
 
+export function continuePendingBusinessAuthNavigation(pendingNavigation: IBusinessAuthPendingNavigation) {
+    return async (dispatch: IStore['dispatch']) => {
+        if (pendingNavigation.meetingEntryType === 'create') {
+            await dispatch(startAuthenticatedHostMeeting(pendingNavigation.uri, pendingNavigation.hidePrejoin));
+
+            return;
+        }
+
+        await dispatch(appNavigate(pendingNavigation.uri, pendingNavigation));
+    };
+}
+
 export function loginBusinessAccount(username: string, password: string) {
     return async (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
         const trimmedUsername = username.trim();
@@ -121,7 +143,10 @@ export function loginBusinessAccount(username: string, password: string) {
                 username: payload.data.username || trimmedUsername
             };
 
-            await persistBusinessAuthSession(user);
+            await Promise.all([
+                persistBusinessAuthSession(user),
+                persistStoredLoginCredentials(trimmedUsername, trimmedPassword)
+            ]);
 
             dispatch({
                 deviceInfo,
@@ -155,7 +180,10 @@ export function loginBusinessAccount(username: string, password: string) {
 
 export function logoutBusinessAccount() {
     return async (dispatch: IStore['dispatch']) => {
-        await clearPersistedBusinessAuthSession();
+        await Promise.all([
+            clearPersistedBusinessAuthSession(),
+            clearStoredLoginCredentials()
+        ]);
 
         dispatch({
             type: BUSINESS_AUTH_LOGOUT
@@ -167,5 +195,32 @@ export function setPendingBusinessAuthNavigation(pendingNavigation: IBusinessAut
     return {
         pendingNavigation,
         type: SET_PENDING_BUSINESS_AUTH_NAVIGATION
+    };
+}
+
+export function startAuthenticatedHostMeeting(room: string, hidePrejoin = true) {
+    return async (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
+        const credentials = await getStoredLoginCredentials();
+
+        if (!credentials) {
+            await dispatch(logoutBusinessAccount());
+            throw _createBusinessAuthActionError('主持人登录状态已失效，请重新登录主持人账号后再试。');
+        }
+
+        await dispatch(appNavigate(room, {
+            hidePrejoin,
+            meetingEntryType: 'create',
+            skipConnect: true
+        }));
+
+        if (getState()['features/base/conference'].room !== room) {
+            throw _createBusinessAuthActionError('会议初始化失败，请稍后重试。');
+        }
+
+        const configHosts = getState()['features/base/config'].hosts;
+        const jid = toJid(credentials.username, configHosts ?? {});
+
+        void dispatch(connectAction(jid, credentials.password));
+        navigateRoot(screen.conference.root);
     };
 }
