@@ -11,6 +11,11 @@ export interface ITrackOptions {
                 max?: number;
                 min?: number;
             };
+            width?: {
+                ideal?: number;
+                max?: number;
+                min?: number;
+            };
         };
     };
     desktopSharingSourceDevice?: string;

@@ -51,18 +51,25 @@ export function toggleScreensharing(enabled: boolean, _ignore1?: boolean, _ignor
 async function _startScreenSharing(dispatch: IStore['dispatch'], state: IReduxState) {
     try {
         const { conference } = state['features/base/conference'];
-        const desktopSharingFrameRate = state['features/base/config'].desktopSharingFrameRate ?? {
-            max: 15,
-            min: 10
-        };
+        const {
+            constraints,
+            desktopSharingFrameRate = {
+                max: 15,
+                min: 10
+            },
+            resolution
+        } = state['features/base/config'];
+        const screenShareConstraints = constraints?.video ? { video: constraints.video } : undefined;
 
         if (typeof desktopSharingFrameRate.max === 'number') {
             conference?.setDesktopSharingFrameRate(desktopSharingFrameRate.max);
         }
 
         const tracks: any[] = await JitsiMeetJS.createLocalTracks({
+            constraints: screenShareConstraints,
             desktopSharingFrameRate,
-            devices: [ 'desktop' ]
+            devices: [ 'desktop' ],
+            resolution
         });
         const track = tracks[0];
         const currentLocalDesktopTrack = getLocalDesktopTrack(getTrackState(state));

@@ -45,6 +45,35 @@ const INITIAL_NON_RN_STATE: IConfig = {
  * @type {Object}
  */
 const INITIAL_RN_STATE: IConfig = {
+    // Keep mobile conferences on the higher quality path for screensharing.
+    desktopSharingFrameRate: {
+        max: 30,
+        min: 10
+    },
+    maxFullResolutionParticipants: -1,
+    p2p: {
+        enabled: false
+    },
+    resolution: 1080,
+    constraints: {
+        video: {
+            height: {
+                ideal: 1080,
+                max: 1080,
+                min: 720
+            },
+            width: {
+                ideal: 1920,
+                max: 1920,
+                min: 1280
+            }
+        }
+    },
+    videoQuality: {
+        codecPreferenceOrder: [ 'VP8', 'H264', 'VP9' ],
+        mobileCodecPreferenceOrder: [ 'VP8', 'H264', 'VP9' ],
+        mobileScreenshareCodec: 'VP8'
+    }
 };
 
 /**

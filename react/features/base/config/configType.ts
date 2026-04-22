@@ -246,6 +246,11 @@ export interface IConfig {
                 max?: number;
                 min?: number;
             };
+            width?: {
+                ideal?: number;
+                max?: number;
+                min?: number;
+            };
         };
     };
     corsAvatarURLs?: Array<string>;
@@ -660,6 +665,7 @@ export interface IConfig {
             [key: number]: string;
         };
         mobileCodecPreferenceOrder?: Array<string>;
+        mobileScreenshareCodec?: string;
         persist?: boolean;
     };
     visitors?: {
