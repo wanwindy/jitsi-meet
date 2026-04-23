@@ -54,8 +54,8 @@ async function _startScreenSharing(dispatch: IStore['dispatch'], state: IReduxSt
         const {
             constraints,
             desktopSharingFrameRate = {
-                max: 15,
-                min: 10
+                max: 45,
+                min: 30
             },
             resolution
         } = state['features/base/config'];

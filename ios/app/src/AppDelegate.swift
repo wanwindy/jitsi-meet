@@ -25,6 +25,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             builder.setFeatureFlag("server-url-change.enabled", withBoolean: false)
             builder.setFeatureFlag("ios.screensharing.enabled", withBoolean: true)
             builder.setFeatureFlag("ios.recording.enabled", withBoolean: true)
+
+            self.applyConferenceConfigOverrides(builder)
         }
 
         jitsiMeet.application(application, didFinishLaunchingWithOptions: launchOptions ?? [:])
@@ -72,6 +74,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 // Firebase utilities
 extension AppDelegate {
+    private func applyConferenceConfigOverrides(_ builder: JitsiMeetConferenceOptionsBuilder) {
+        let codecPreferenceOrder = [ "VP8", "H264", "VP9" ]
+
+        builder.setConfigOverride("p2p", withDictionary: [
+            "enabled": false
+        ])
+        builder.setConfigOverride("desktopSharingFrameRate", withDictionary: [
+            "min": 30,
+            "max": 45
+        ])
+        builder.setConfigOverride("videoQuality", withDictionary: [
+            "codecPreferenceOrder": codecPreferenceOrder,
+            "mobileCodecPreferenceOrder": codecPreferenceOrder
+        ])
+    }
+
     func appContainsRealServiceInfoPlist() -> Bool {
         return InfoPlistUtil.containsRealServiceInfoPlist(in: Bundle.main)
     }

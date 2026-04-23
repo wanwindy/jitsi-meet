@@ -158,8 +158,38 @@ public class MainActivity extends JitsiMeetActivity {
             .setServerURL(buildURL("https://fangxinbanmeet.com"))
             .setFeatureFlag("welcomepage.enabled", true)
             .setFeatureFlag("server-url-change.enabled", false)
+            .setConfigOverride("p2p", buildP2PConfig())
+            .setConfigOverride("desktopSharingFrameRate", buildDesktopSharingFrameRateConfig())
+            .setConfigOverride("videoQuality", buildVideoQualityConfig())
             .build();
         JitsiMeet.setDefaultConferenceOptions(defaultOptions);
+    }
+
+    private Bundle buildDesktopSharingFrameRateConfig() {
+        Bundle desktopSharingFrameRate = new Bundle();
+
+        desktopSharingFrameRate.putInt("min", 30);
+        desktopSharingFrameRate.putInt("max", 45);
+
+        return desktopSharingFrameRate;
+    }
+
+    private Bundle buildP2PConfig() {
+        Bundle p2p = new Bundle();
+
+        p2p.putBoolean("enabled", false);
+
+        return p2p;
+    }
+
+    private Bundle buildVideoQualityConfig() {
+        Bundle videoQuality = new Bundle();
+        String[] codecPreferenceOrder = new String[] { "VP8", "H264", "VP9" };
+
+        videoQuality.putStringArray("codecPreferenceOrder", codecPreferenceOrder);
+        videoQuality.putStringArray("mobileCodecPreferenceOrder", codecPreferenceOrder);
+
+        return videoQuality;
     }
 
     private void resolveRestrictions() {

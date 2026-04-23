@@ -47,8 +47,8 @@ const INITIAL_NON_RN_STATE: IConfig = {
 const INITIAL_RN_STATE: IConfig = {
     // Keep mobile conferences on the higher quality path for screensharing.
     desktopSharingFrameRate: {
-        max: 30,
-        min: 10
+        max: 45,
+        min: 30
     },
     maxFullResolutionParticipants: -1,
     p2p: {
