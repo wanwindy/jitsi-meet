@@ -329,6 +329,12 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             2>&1 | tee "$GITHUB_WORKSPACE/archive.log"
 
+      - name: Extract real archive error
+        if: failure()
+        run: |
+          grep -n -i -E "error:|ARCHIVE FAILED|BUILD FAILED|CodeSign|Provisioning|No profiles|requires a provisioning|PhaseScriptExecution failed|Command .* failed" "$GITHUB_WORKSPACE/archive.log" || true
+          tail -n 300 "$GITHUB_WORKSPACE/archive.log"
+
       - name: Export IPA
         run: |
           set -o pipefail
