@@ -77,14 +77,14 @@ extension AppDelegate {
     private func applyConferenceConfigOverrides(_ builder: JitsiMeetConferenceOptionsBuilder) {
         let codecPreferenceOrder = [ "VP8", "H264", "VP9" ]
 
-        builder.setConfigOverride("p2p", withDictionary: [
+        builder.setConfigOverride("p2p", with: [
             "enabled": false
         ])
-        builder.setConfigOverride("desktopSharingFrameRate", withDictionary: [
+        builder.setConfigOverride("desktopSharingFrameRate", with: [
             "min": 30,
             "max": 45
         ])
-        builder.setConfigOverride("videoQuality", withDictionary: [
+        builder.setConfigOverride("videoQuality", with: [
             "codecPreferenceOrder": codecPreferenceOrder,
             "mobileCodecPreferenceOrder": codecPreferenceOrder
         ])
