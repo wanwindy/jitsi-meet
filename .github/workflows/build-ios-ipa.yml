@@ -9,7 +9,6 @@ jobs:
     timeout-minutes: 90
     env:
       NODE_OPTIONS: "--max-old-space-size=6144"
-      BUILD_NUMBER_OFFSET: "1"
 
       # App identifiers
       MAIN_BUNDLE_ID: "com.fangxinban.meet"
@@ -50,18 +49,184 @@ jobs:
           pod repo update 2>&1 | tee "$GITHUB_WORKSPACE/pod_repo_update.log"
           pod install 2>&1 | tee "$GITHUB_WORKSPACE/pod_install.log"
 
-      - name: Auto-increment Build Number
+      - name: Resolve App Store versions
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
         run: |
           set -euo pipefail
-          RUN_NUMBER="${{ github.run_number }}"
-          BUILD_NUMBER="$((RUN_NUMBER + BUILD_NUMBER_OFFSET))"
-          echo "Setting Build Number to: $BUILD_NUMBER (run number: $RUN_NUMBER, offset: $BUILD_NUMBER_OFFSET)"
+
+          BASE_MARKETING_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" ios/app/src/Info.plist)
+          ASC_KEY_PATH="$RUNNER_TEMP/app_store_connect_api_key.p8"
+          VERSION_ENV="$RUNNER_TEMP/ios_versioning.env"
+          export BASE_MARKETING_VERSION
+          export ASC_KEY_PATH
+
+          echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode -o "$ASC_KEY_PATH"
+
+          ruby <<'RUBY' > "$VERSION_ENV"
+          require 'base64'
+          require 'json'
+          require 'net/http'
+          require 'openssl'
+          require 'time'
+          require 'uri'
+
+          def base64url(value)
+            Base64.urlsafe_encode64(value, padding: false)
+          end
+
+          def compare_versions(left, right)
+            left_parts = left.split('.').map { |part| Integer(part, 10) }
+            right_parts = right.split('.').map { |part| Integer(part, 10) }
+            max_length = [ left_parts.length, right_parts.length ].max
+
+            (0...max_length).each do |index|
+              left_value = left_parts[index] || 0
+              right_value = right_parts[index] || 0
+              result = left_value <=> right_value
+
+              return result unless result.zero?
+            end
+
+            0
+          end
+
+          def bump_patch(version)
+            parts = version.split('.').map { |part| Integer(part, 10) }
+            parts << 0 while parts.length < 3
+            parts = parts.first(3)
+            parts[2] += 1
+            parts.join('.')
+          end
+
+          def api_get(token, path, query = {})
+            uri = URI("https://api.appstoreconnect.apple.com#{path}")
+            uri.query = URI.encode_www_form(query) unless query.empty?
+
+            request = Net::HTTP::Get.new(uri)
+            request['Authorization'] = "Bearer #{token}"
+            request['Accept'] = 'application/json'
+
+            response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
+              http.request(request)
+            end
+
+            unless response.is_a?(Net::HTTPSuccess)
+              warn "App Store Connect API request failed: #{response.code} #{response.message}"
+              warn response.body
+              raise "Unable to query #{uri}"
+            end
+
+            JSON.parse(response.body)
+          end
+
+          key = OpenSSL::PKey.read(File.read(ENV.fetch('ASC_KEY_PATH')))
+          now = Time.now.to_i
+
+          header = {
+            alg: 'ES256',
+            kid: ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
+            typ: 'JWT'
+          }
+          payload = {
+            iss: ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
+            aud: 'appstoreconnect-v1',
+            exp: now + 1200
+          }
+
+          encoded_token = [ header, payload ].map { |part| base64url(part.to_json) }.join('.')
+          signature = key.dsa_sign_asn1(OpenSSL::Digest::SHA256.digest(encoded_token))
+          token = "#{encoded_token}.#{base64url(signature)}"
+
+          app_response = api_get(
+            token,
+            '/v1/apps',
+            {
+              'filter[bundleId]' => ENV.fetch('MAIN_BUNDLE_ID'),
+              'fields[apps]' => 'bundleId,name',
+              'limit' => '1'
+            }
+          )
+
+          app = app_response.fetch('data', []).first
+          raise "No App Store Connect app found for bundle id #{ENV.fetch('MAIN_BUNDLE_ID')}" unless app
+
+          app_id = app.fetch('id')
+          versions_response = api_get(
+            token,
+            "/v1/apps/#{app_id}/appStoreVersions",
+            {
+              'filter[platform]' => 'IOS',
+              'fields[appStoreVersions]' => 'versionString,appVersionState,appStoreState',
+              'limit' => '200'
+            }
+          )
+
+          approved_states = %w[
+            READY_FOR_DISTRIBUTION
+            PENDING_DEVELOPER_RELEASE
+            PENDING_APPLE_RELEASE
+            PROCESSING_FOR_DISTRIBUTION
+          ]
+
+          all_versions = versions_response.fetch('data', []).filter_map do |item|
+            attributes = item.fetch('attributes', {})
+            version = attributes['versionString']
+
+            version if version
+          end
+
+          approved_versions = versions_response.fetch('data', []).filter_map do |item|
+            attributes = item.fetch('attributes', {})
+            version = attributes['versionString']
+            state = attributes['appVersionState'] || attributes['appStoreState']
+
+            version if version && approved_states.include?(state)
+          end
+
+          base_marketing_version = ENV.fetch('BASE_MARKETING_VERSION')
+          latest_existing_version = all_versions.max { |left, right| compare_versions(left, right) }
+          latest_approved_version = approved_versions.max { |left, right| compare_versions(left, right) }
+          marketing_version = base_marketing_version
+
+          if latest_existing_version && compare_versions(marketing_version, latest_existing_version) < 0
+            marketing_version = latest_existing_version
+          end
+
+          if latest_approved_version && compare_versions(marketing_version, latest_approved_version) <= 0
+            marketing_version = bump_patch(latest_approved_version)
+          end
+
+          build_number = Time.now.utc.to_i.to_s
+
+          warn "Base marketing version: #{base_marketing_version}"
+          warn "Latest App Store Connect version: #{latest_existing_version || 'none'}"
+          warn "Latest approved App Store version: #{latest_approved_version || 'none'}"
+          warn "Resolved marketing version: #{marketing_version}"
+          warn "Resolved build number: #{build_number}"
+
+          puts "APP_STORE_APP_ID=#{app_id}"
+          puts "MARKETING_VERSION=#{marketing_version}"
+          puts "BUILD_NUMBER=#{build_number}"
+          RUBY
+
+          cat "$VERSION_ENV" >> "$GITHUB_ENV"
+          source "$VERSION_ENV"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" ios/app/src/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" ios/app/broadcast-extension/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" ios/sdk/src/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" ios/sdk/src/Lite-Info.plist
 
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/app/src/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/app/broadcast-extension/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/sdk/src/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" ios/sdk/src/Lite-Info.plist
 
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "Using MARKETING_VERSION=$MARKETING_VERSION"
+          echo "Using BUILD_NUMBER=$BUILD_NUMBER"
 
       - name: Install signing certificate and provisioning profiles
         env:
@@ -367,7 +532,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: fangxinban-ios-ipa-${{ env.BUILD_NUMBER }}
+          name: fangxinban-ios-ipa-${{ env.MARKETING_VERSION }}-${{ env.BUILD_NUMBER }}
           path: ios/build/ipa/*.ipa
 
       - name: Upload to TestFlight
