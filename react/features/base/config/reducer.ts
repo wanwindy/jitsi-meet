@@ -51,9 +51,6 @@ const INITIAL_RN_STATE: IConfig = {
         min: 30
     },
     maxFullResolutionParticipants: -1,
-    p2p: {
-        enabled: false
-    },
     resolution: 1080,
     constraints: {
         video: {
