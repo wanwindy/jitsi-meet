@@ -479,6 +479,7 @@ jobs:
           cat ios/ExportOptions.plist
 
       - name: Archive iOS app
+        id: archive_ios_app
         run: |
           set -o pipefail
           xcodebuild archive \
@@ -495,10 +496,14 @@ jobs:
             2>&1 | tee "$GITHUB_WORKSPACE/archive.log"
 
       - name: Extract real archive error
-        if: failure()
+        if: failure() && steps.archive_ios_app.conclusion == 'failure'
         run: |
-          grep -n -i -E "error:|ARCHIVE FAILED|BUILD FAILED|CodeSign|Provisioning|No profiles|requires a provisioning|PhaseScriptExecution failed|Command .* failed" "$GITHUB_WORKSPACE/archive.log" || true
-          tail -n 300 "$GITHUB_WORKSPACE/archive.log"
+          if [ -f "$GITHUB_WORKSPACE/archive.log" ]; then
+            grep -n -i -E "error:|ARCHIVE FAILED|BUILD FAILED|CodeSign|Provisioning|No profiles|requires a provisioning|PhaseScriptExecution failed|Command .* failed" "$GITHUB_WORKSPACE/archive.log" || true
+            tail -n 300 "$GITHUB_WORKSPACE/archive.log" || true
+          else
+            echo "archive.log was not created; the archive step may have failed before tee wrote the log."
+          fi
 
       - name: Export IPA
         run: |
