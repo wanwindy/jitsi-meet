@@ -103,11 +103,16 @@ jobs:
           write_private_key_file() {
             local secret_value="$1"
             local output_path="$2"
+            local normalized_value="$secret_value"
 
-            if printf '%s' "$secret_value" | grep -q 'BEGIN PRIVATE KEY'; then
-              printf '%s' "$secret_value" > "$output_path"
+            normalized_value="${normalized_value%\"}"
+            normalized_value="${normalized_value#\"}"
+            normalized_value="${normalized_value//\\n/$'\n'}"
+
+            if printf '%s' "$normalized_value" | grep -Eq 'BEGIN (EC )?PRIVATE KEY'; then
+              printf '%s' "$normalized_value" > "$output_path"
             else
-              printf '%s' "$secret_value" | base64 --decode > "$output_path"
+              printf '%s' "$normalized_value" | base64 --decode > "$output_path"
             fi
 
             perl -0pi -e 's/\r\n/\n/g; s/\r/\n/g' "$output_path"
@@ -619,11 +624,16 @@ jobs:
           set -euo pipefail
           mkdir -p ~/.private_keys
           ASC_UPLOAD_KEY_PATH=~/.private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+          NORMALIZED_ASC_KEY="$APP_STORE_CONNECT_API_KEY_BASE64"
 
-          if printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" | grep -q 'BEGIN PRIVATE KEY'; then
-            printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" > "$ASC_UPLOAD_KEY_PATH"
+          NORMALIZED_ASC_KEY="${NORMALIZED_ASC_KEY%\"}"
+          NORMALIZED_ASC_KEY="${NORMALIZED_ASC_KEY#\"}"
+          NORMALIZED_ASC_KEY="${NORMALIZED_ASC_KEY//\\n/$'\n'}"
+
+          if printf '%s' "$NORMALIZED_ASC_KEY" | grep -Eq 'BEGIN (EC )?PRIVATE KEY'; then
+            printf '%s' "$NORMALIZED_ASC_KEY" > "$ASC_UPLOAD_KEY_PATH"
           else
-            printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > "$ASC_UPLOAD_KEY_PATH"
+            printf '%s' "$NORMALIZED_ASC_KEY" | base64 --decode > "$ASC_UPLOAD_KEY_PATH"
           fi
 
           perl -0pi -e 's/\r\n/\n/g; s/\r/\n/g' "$ASC_UPLOAD_KEY_PATH"
